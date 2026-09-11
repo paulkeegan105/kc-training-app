@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kilcarrig GAA — Under 9</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="crest">KC</div>
+  <div>
+    <div class="club">Kilcarrig GAA</div>
+    <div class="sub">Under 9</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="whoami">
+    <b>Máire Ní Bhriain</b>
+    Team Admin
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-view="members" aria-selected="true">Members</button>
+  <button role="tab" data-view="event" aria-selected="false">Wednesday session</button>
+  <button role="tab" data-view="groups" aria-selected="false">Groups</button>
+  <button role="tab" data-view="parent" aria-selected="false">Parent view</button>
+</nav>
+
+<main>
+  <section class="view active" id="view-members"></section>
+  <section class="view" id="view-event"></section>
+  <section class="view" id="view-groups"></section>
+  <section class="view" id="view-parent"></section>
+</main>
+
+<footer>
+  Throwaway prototype. Sample data is generated in the browser and nothing is saved.
+  Allocation follows <code>allocation-rules.md</code> in balanced ability mode.
+</footer>
+
+<script src="data.js"></script>
+<script src="allocate.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
