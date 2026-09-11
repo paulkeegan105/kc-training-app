@@ -28,6 +28,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Decided.** The household account is gone: every adult gets their own login. A child is linked to one or more adults, all of whom see that child and can answer for them. Availability attaches to the child, so there is one answer per child per event whoever gives it and any linked adult can change it, while a coach's own availability stays separate. Notification preferences are per adult.
 
+**Updated.** The per-adult notification preferences in the decision above are withdrawn. Push is out of the first release, email is the only channel, and with one channel there is nothing to choose between. Everything else recorded here stands.
+
 **7. Blackout dates auto-decline, but declining requires a reason.** "A member who declines is asked for a reason" — nobody is present to be asked when the decline is automatic. Does an auto-decline carry a system-generated reason, skip the reason, and can the member override it later for a specific event?
 
 **Decided.** Blackout dates and date-range unavailability are removed from the spec entirely. Members respond per event, so every decline comes from someone who can be asked for a reason.
@@ -38,6 +40,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **9. Venue is required and location is optional, with no stated difference.** What is each for?
 
+**Decided.** Venue and location become one field. Venue is a controlled list of the club's usual pitches, maintained by a Club Admin, with an optional map link that covers away games. There is no separate location field.
+
 **10. A max coaches per group is referenced but never defined.** Two coaching parents of one child both go to that child's group "if it stays within the coach limits" — the Inputs list only a *minimum*. Is there a maximum, and is it a hard rule?
 
 **No longer applicable.** The conditional it hangs on is gone — allocation-rules.md now says simply that where a child has two parents coaching, both go to that child's group, so nothing references an undefined coach maximum any more.
@@ -45,6 +49,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **11. The singleton pool can't always be a legal group.** Singletons are pooled into one group, which is "bound by the same min and max sizes". With three singletons and a minimum of five, you must top it up with non-singletons — is that intended? And a *single* singleton on the night can't satisfy the school floor anywhere; the spec doesn't say what to do or what to show.
 
 **Partly overtaken.** The min/max wording it quotes no longer exists and sizes now give way before the staffing rules, so an undersized singleton group is no longer an outright rule break — but the lone singleton who can't satisfy the school floor at all is still unaddressed.
+
+**Decided.** The surviving half is settled: if only one child is a singleton on a given night there is no pool to place them in, so they are placed normally and the admin is told the rule couldn't be met for that child.
 
 **41. "A coach can only be placed in a group with their own child" reads as an absolute, but a manual move is allowed to break a hard rule.** The Coaches section in `app-spec.md` states the pairing as something that simply cannot be otherwise, while Manual changes in `allocation-rules.md` says a manual move can break a hard rule, and that this should be allowed and shown. Can an admin move a coach away from their child by hand?
 
@@ -59,6 +65,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **Answered (allocation-rules.md, "Settings"; app-spec.md, "Team settings"), apart from two numbers.** They are team settings, set per team by an admin because turnout and age change what works, and overridable on a single event — an override applies to that event only and never changes the team's settings. Defaults are now: maximum groups 10, minimum coaches per group 1, coach-to-child ratio 1:8, with the older age groups running 1:10. Max players per group no longer exists; the ratio and the target size replace it. Target group size and minimum group size are still TBC and are now the only two numbers outstanding — the specs record that they need the club.
 
 **13. Does allocation apply to matches at all?** A group is "one station at a training session, or one team at a match". Those aren't the same constraint: a match squad size is fixed by the code (e.g. Go Games sides), not by an admin's min/max. Does an admin set the group count directly for games?
+
+**Decided.** The allocation applies to matches and blitzes as well as training. A go-games squad is a group with a fixed size, set through the per-event settings override, and all the same rules apply.
 
 **14. The derivation always produces the maximum permitted number of groups.** Taking the lowest ceiling and clamping up to the floor means 30 players with min 5 / max 12 and 12 coaches gives six groups of five, not three of ten. Is "as many small groups as the coaches allow" the intent, and can the admin override the number?
 
@@ -112,13 +120,23 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **26. Exports are referenced in the visibility rules but no export feature is defined anywhere.** What exports exist, and for whom?
 
+**Decided.** There is one export: an admin export of a session's groups, for printing or sharing. It carries names, groups and coaches only, never ratings or schools.
+
 **27. Club-level administration doesn't exist in the role model.** The crest is "set once at club level", but there's no club admin. Who creates teams, and who appoints the first Team Admin of a new team?
+
+**Decided.** A Club Admin sits above the teams. They create teams, appoint the first Team Admin of each, and maintain the crest, the school list and the venue list.
 
 **28. Last-admin protection.** A team must always have at least one admin — what stops the only admin from removing themselves or deleting their account?
 
+**Decided.** A Team Admin cannot remove themselves or close their account while they are the only admin of a team, and a Club Admin can always appoint a replacement.
+
 **29. Removing a member.** What happens to their past availability responses and historical group placements?
 
+**Decided.** Removing a member is a soft removal. Past events keep their record intact and the member stops appearing in anything future.
+
 **30. Member CSV import is in Notes, not scope.** Given Teamer has no export and closes 5 October 2026, is it in?
+
+**Decided.** In scope. The member CSV import moves out of Notes and into the spec, matching the one for events.
 
 ## Things I'd have to invent to build it
 
@@ -126,7 +144,13 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 
 **31. Platform and stack.** Push notifications imply native apps or web push; nothing states iOS/Android/web, or whether this is one deployment for one club or multi-tenant.
 
+**Proposed, not yet decided.** A mobile-first responsive web app, installed to the home screen as a PWA, with Web Push for notifications and email as the second channel. It fits the constraints directly: no app store, parents on phones, and one club means one small deployment with no per-platform release cycle. The caveat worth knowing before this is signed off is that web push on iOS only works once the parent has added the site to their home screen, so a share of the club will be on email alone until they do — which matters because notifications are the point of the app.
+
+**Updated.** Push is out of the first release, so the iOS home-screen caveat above doesn't apply to it — email carries every notification. The PWA pick stands, and it is the reason the architecture should keep the channel behind one sending path so push can be added later without a rewrite.
+
 **32. Authentication.** Email and password, magic link, social sign-in? Password reset, and how a signup gets matched to an existing unregistered member.
+
+**Proposed, not yet decided.** Email magic links, no passwords. Signup already has to match an email address against an existing member record, so proving control of that address is the entire job, and an admin-added member becomes registered the first time they follow a link sent to the address on their record. It also avoids storing passwords and fielding reset requests for a volunteer-run club, and suits phones shared between parents. Sessions should be long-lived so parents aren't re-authenticating every time. The caveat is that it puts sign-in on the same email deliverability that the notifications already depend on.
 
 **33. The balanced-ability objective function.** "Ratings spread evenly" has several reasonable implementations — equalise each group's mean, snake-draft by rating, or equalise the count of each rating value per group. They give different answers.
 
@@ -134,17 +158,29 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 
 **34. Player of the Game entirely.** Who votes (parents, children, coaches), one vote per person or per account, whether you can vote for your own child, when voting opens and closes, whether results are public, and what happens on a tie.
 
+**Decided.** Player of the Game is removed from the spec entirely.
+
 **35. CSV schemas** for both the event template and any member import, plus validation and partial-failure behaviour on a bad row.
+
+**Partly decided.** A CSV import is validated as a whole: nothing is imported until the file is clean, and errors are reported by row number. This applies to both the event and member imports. The column definitions for either template are still not specified.
 
 **36. Chaser and reminder scope.** Is the 24-hour reminder toggle per event or per team? Does it go to everyone or only non-responders? Is there a limit on manual chasers?
 
+**Decided.** The automatic 24-hour reminder is a team setting, on or off, and goes only to people who haven't responded. Manual chasers are per person with no limit.
+
 **37. Whether an admin override of someone's status is visible to that person,** and whether an overridden "accepted" feeds the allocation identically to a real one.
 
+**Decided.** An admin override of someone's status is visible to that person, shown as set by an admin, and feeds the allocation exactly like a real response.
+
 **38. What parents see of a group beyond their own child** — the other children's names, or only the coaches.
+
+**Decided.** A parent sees their child's group, the coaches for it, and the names of the other children in it.
 
 **39. Data protection.** Nothing addresses consent, retention, or subject access for children's records — including an ability rating that is explicitly hidden from the child's own parents. For a club handling young children's data this needs a decision before launch, not after.
 
 **40. Timeline.** Teamer closes 5 October 2026, which is under four weeks away. The scope above is considerably more than that allows, so I'd assume a cut-down first release — which of these is genuinely needed by 5 October versus later?
+
+**Decided.** The first release covers teams and members, creating and publishing events, availability, and group allocation. Everything else waits.
 
 ---
 

@@ -6,7 +6,7 @@ Scope: how available players and coaches are split into groups for a single even
 
 **Person** — a child or an adult. Has a full name. Children have a school and an ability rating. Adults may be linked to one or more children as parent.
 
-**Account** — a login. Every adult has their own login, and can be signed in on several phones at once, all receiving the same notifications.
+**Account** — a login. Every adult has their own login, and can be signed in on several phones at once.
 
 Person and account are separate on purpose. A child has no login: they are linked to one or more adults, any of whom can answer for them. Availability attaches to the child, so there is one answer per child per event, and a coach's own availability is separate from their child's.
 
@@ -35,6 +35,10 @@ These are set per team by an admin, and can be overridden on a single event. An 
 The ratio is a ceiling, not a target. Fewer children per coach is always acceptable. The older age groups will run at 1:10, which is why it's a setting rather than a constant.
 
 The ratio is checked group by group, not across the session. Twenty children in a group with two coaches fails, even if the session as a whole has enough coaches to average out.
+
+## Matches and blitzes
+
+The allocation applies to matches and blitzes as well as training. A go-games squad is a group with a fixed size, set through the per-event settings override. All the same rules apply.
 
 ## Deriving the number of groups
 
@@ -114,6 +118,8 @@ Children who are the only attendee from their school that night can't satisfy th
 
 That group is a group like any other. It is bound by the same sizes, the minimum coaches and the ratio. If there are more singletons than one group can take, split them across two or more groups.
 
+If only one child is a singleton on a given night there is no pool to place them in. Place them normally and tell the admin the rule couldn't be met for that child.
+
 ### Balanced ability
 
 Ratings are spread evenly across groups, so each group holds a mix of strong, average and weaker players. This is the opposite of banding: do not put the 1s together and the 5s together.
@@ -148,9 +154,11 @@ Re-publishing notifies only those whose group has changed.
 
 ## Visibility
 
-Parents see which group their child is in and who is coaching it.
+Parents see which group their child is in, the coaches for it, and the names of the other children in it.
 
 Ability ratings are admin-only. They must not appear anywhere a parent can reach, including group listings, notifications, exports and anything shared outside the app.
+
+The one export is an admin export of a session's groups, for printing or sharing. It carries names, groups and coaches only.
 
 A parent sees their own child's school, because they entered it, but never another child's. Neither school nor rating is ever given as the reason a child is in a group.
 
