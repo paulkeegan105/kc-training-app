@@ -14,15 +14,27 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **3. Unregistered members "receive notifications straight away", but notifications are push and email only.** An admin adds a member with "a name and a contact detail". If that detail is a phone number, they have no push (no app) and no email, so they receive nothing — and no SMS is allowed. Should the contact detail be mandatorily an email?
 
+**Decided.** Every adult must have an email address; a phone number is optional and used for tap-to-call only. An unregistered member therefore always has an address that email notifications can reach, and the member-add flow now asks for a name and an email address.
+
 **4. Registration can only happen by email match, so phone-only members are permanently unregistered.** "When that person signs up using the same email address, they become registered." Is there any other path — an invite link, an admin manually linking a signup to an existing member?
+
+**Decided.** Every adult must have an email address, so there is always an address to match a signup against and nobody can be stranded as permanently unregistered.
 
 **5. Parents never see a child's school or rating, but registered members "manage their own details".** Who enters a child's school and ability rating, and can a registered parent see or edit their *own* child's record? As written, "never sees any child's... school, anywhere in the app" includes their own child — which means the admin must source school data some other way.
 
+**Decided.** A child's school is entered and edited by their own parent and visible only to the adults linked to that child, with a short note on the field explaining why it is collected. It is required but prompted after signup rather than blocking it, and admins get a list of the children still missing one. The ability rating is entered and seen by admins only and is never shown to a parent, including their own child's.
+
 **6. "One household has one account" vs "every parent gets a login" vs "their own account".** If both parents and a grandparent share one login, whose account is it, and what does "a parent does from their own account" mean? Compounding this: "members can set their own notification preferences", but all phones on an account get the same notifications. If Mum wants email only and Dad wants push, one shared account can't express that.
+
+**Decided.** The household account is gone: every adult gets their own login. A child is linked to one or more adults, all of whom see that child and can answer for them. Availability attaches to the child, so there is one answer per child per event whoever gives it and any linked adult can change it, while a coach's own availability stays separate. Notification preferences are per adult.
 
 **7. Blackout dates auto-decline, but declining requires a reason.** "A member who declines is asked for a reason" — nobody is present to be asked when the decline is automatic. Does an auto-decline carry a system-generated reason, skip the reason, and can the member override it later for a specific event?
 
+**Decided.** Blackout dates and date-range unavailability are removed from the spec entirely. Members respond per event, so every decline comes from someone who can be asked for a reason.
+
 **8. Delete may be a dead feature.** Deleting is allowed only before notifications have gone out. If the invitation notification fires automatically when an event is created, there is never a window to delete. Is there an explicit publish/invite step separate from creation?
+
+**Decided.** Events start as a draft: invisible to members, freely editable and deletable. Publishing is a separate step that sends the invitations, and once published, cancelling is the only way to withdraw an event.
 
 **9. Venue is required and location is optional, with no stated difference.** What is each for?
 
@@ -37,6 +49,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **41. "A coach can only be placed in a group with their own child" reads as an absolute, but a manual move is allowed to break a hard rule.** The Coaches section in `app-spec.md` states the pairing as something that simply cannot be otherwise, while Manual changes in `allocation-rules.md` says a manual move can break a hard rule, and that this should be allowed and shown. Can an admin move a coach away from their child by hand?
 
 **Answered.** The absolute reading applies to the allocation engine, which never places a coach away from their child. An admin can still move one by hand, and it is treated like any other hard-rule break — allowed, and shown to the admin with the same warning.
+
+**Superseded by the decision recorded at item 23.** Moving one of a coach and child pair now moves the other with it, so a manual move never splits them.
 
 ## Gaps that block a build
 
@@ -56,25 +70,45 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **16. A coach with two children in the same age group can't be in both their groups.** Twins and same-age siblings are common. Which child wins, or does the admin resolve it?
 
+**Decided.** All of a coach's children in that team go into their group, twins and same-age siblings included.
+
 **17. Precedence between step 1 and the school-affinity floor is undefined.** Coaches' children are placed first, before the mode is applied, so a coach's child can land as the only one from their school in that group. Does the affinity floor get to move them afterwards, or does the coach spread win?
+
+**Decided.** Coach placement beats school affinity. A coach's child may end up the only one from their school in that group, and that is accepted rather than corrected.
 
 **18. Precedence between "sizes as even as possible" and "schools spread as evenly as possible" is undefined.** Both are stated as applying to every allocation and they routinely conflict. Which yields, or is there a weighting?
 
+**Decided.** Even group sizes and even coach spread come first. School cohorts are fitted inside them.
+
 **19. Missing ability ratings and missing schools.** New child, or a rating nobody has set yet — does balanced ability refuse to run, treat it as a 3, or exclude them from balancing?
 
+**Decided.** A missing ability rating is treated as 3 and flagged to the admin. A child with no school recorded is treated as a singleton for that session, and admins get a list of the children still missing one.
+
 **20. School needs to be a controlled list.** If it's free text, "St Mary's" and "St. Marys" are two schools and the singleton logic silently misfires. Is there a club-level list of schools?
+
+**Decided.** Schools are a controlled list maintained by an admin at club level. Parents pick from a dropdown, which includes an "other" option.
 
 **21. Who is invited to an event?** Always the whole team, or can an admin invite a subset? Are adults invited to every event, or only those flagged as coaching?
 
 **Partly overtaken.** The second half is answered — app-spec.md's "Coaches" section makes the coach flag the thing that gets someone invited to an event as a coach — but whether an admin can invite a subset of the team is still open.
 
+**Decided.** Publishing invites everyone on the team, meaning every child and every flagged coach. The admin can deselect people before publishing.
+
 **22. Availability changes after groups are published.** Someone accepts late or drops out on the morning. Does the app re-run, warn the admin, or do nothing? Does re-publishing re-notify everyone?
+
+**Decided.** The app never re-runs the allocation by itself: it reports who has changed and which rules are now broken, and the admin decides. A re-run keeps everyone where they are and makes the fewest moves that satisfy the rules, and re-publishing notifies only those whose group has changed.
 
 **23. Does moving a child move their coaching parent?** Manual moves are pinned; moving one half of a coach/child pair breaks hard rule 1. Does the app move both, or break the rule and report it?
 
+**Decided.** Moving one of a coach and child pair moves the other with it, and warns the admin. This supersedes the answer recorded at item 41: a manual move can no longer split the pair, though it can still break the other hard rules.
+
 **24. Recurring event edits.** Does editing or cancelling one occurrence affect the series? What happens to a series when a member is added mid-way?
 
+**Decided.** Recurrence is a convenience at creation only. Each occurrence is independent afterwards, so editing or cancelling one affects no other, and a member added mid-term is invited to the occurrences still to come.
+
 **25. Event end time or duration is never specified** — the calendar subscription needs one.
+
+**Decided.** Events have a duration, defaulting to 1 hour 15 as a team setting and overridable per event.
 
 **26. Exports are referenced in the visibility rules but no export feature is defined anywhere.** What exports exist, and for whom?
 
@@ -95,6 +129,8 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 **32. Authentication.** Email and password, magic link, social sign-in? Password reset, and how a signup gets matched to an existing unregistered member.
 
 **33. The balanced-ability objective function.** "Ratings spread evenly" has several reasonable implementations — equalise each group's mean, snake-draft by rating, or equalise the count of each rating value per group. They give different answers.
+
+**Decided.** Balanced ability spreads the ratings in this order: the 1s first, then the 5s, then the 2s, then the 4s, then the 3s fill the remaining places. No group needs one of every rating. Banding was considered and parked, because banded groups make a child's rating readable by any parent who can see who else is in the group.
 
 **34. Player of the Game entirely.** Who votes (parents, children, coaches), one vote per person or per account, whether you can vote for your own child, when voting opens and closes, whether results are public, and what happens on a tie.
 

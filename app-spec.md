@@ -8,17 +8,31 @@ Group allocation is specified separately in `allocation-rules.md`. Read both.
 
 ## People and accounts
 
-**Person** — a child or an adult. A child has a full name, a school and an ability rating. An adult has a full name, an email address and a phone number.
+**Person** — a child or an adult. A child has a full name, a school and an ability rating. An adult has a full name, an email address and, optionally, a phone number.
 
-**Account** — a login. One household has one account, with one or more people attached to it. The same account can be signed in on several phones at once, and all of them get the same notifications, so both parents and a grandparent can be on the same login.
+Every adult must have an email address. It is how they are notified and how a signup is matched to an existing member. A phone number is optional, and is used for tap-to-call only.
 
-Person and account are deliberately separate. Availability is answered per person, not per account, so one household can accept for the child and decline for the coaching parent on the same night.
+**Account** — a login. Every adult gets their own login. An account can be signed in on several phones at once, and all of them get the same notifications.
 
-Children have no photo, no bio and no contact details of their own. All contact goes to the adults on their account.
+Person and account are deliberately separate. A child has no login of their own.
+
+A child is linked to one or more adults. Every linked adult sees that child and can answer for them. Availability attaches to the child, so there is one answer per child per event whoever gives it, and any linked adult can change it afterwards.
+
+A coach's own availability is separate from their child's. Notification preferences are per adult.
+
+Children have no photo, no bio and no contact details of their own. All contact goes to the adults linked to them.
 
 An adult can be linked to more than one child, including children in different age groups.
 
-Every parent gets a login. Accepting an event and blocking out unavailable dates are both things a parent does from their own account.
+## School and ability rating
+
+A child's school is entered and edited by their own parent, and is visible only to the adults linked to that child. The field carries a short note explaining why it is collected.
+
+It is required, but it is prompted after signup rather than blocking it. Admins get a list of the children still missing one. A child with no school recorded is treated as a singleton for that session.
+
+Schools are a controlled list, maintained by an admin at club level. Parents pick from a dropdown, which includes an "other" option.
+
+The ability rating is entered and seen by admins only, and is never shown to a parent.
 
 ## Teams
 
@@ -54,9 +68,11 @@ Each team carries the numbers the allocation runs on: maximum groups, minimum co
 
 An admin sets them per team, because turnout and age change what works. An admin can also override them on a single event, which applies to that event only and leaves the team's settings alone.
 
+A team also carries a default event duration of 1 hour 15, overridable on a single event in the same way.
+
 ## Registered and unregistered members
 
-An admin adds a member by typing a name and a contact detail. That member exists and receives notifications straight away without doing anything. They are **unregistered**, and the admin can edit their details.
+An admin adds a member by typing a name and an email address. That member exists and receives notifications straight away without doing anything. They are **unregistered**, and the admin can edit their details.
 
 When that person signs up using the same email address, they become **registered**. From then on they manage their own details and the admin cannot edit them.
 
@@ -70,11 +86,19 @@ Required fields: type, date and time, venue.
 
 Optional fields: meet time, opposition, location.
 
-An event can be created singly, or as a recurring event repeating weekly for up to 12 weeks. Events can also be uploaded in bulk from a CSV template, with a downloadable template provided.
+An event has a duration. It defaults to the team's setting of 1 hour 15 and can be overridden on the event.
 
-Events can be edited.
+An event can be created singly, or as a recurring event repeating weekly for up to 12 weeks. Recurrence is a convenience at creation only: each occurrence is independent once created, so editing or cancelling one affects no other. A member added mid-term is invited to the occurrences still to come.
 
-Cancelling asks the admin for a reason and notifies everyone. Deleting is only allowed before notifications have gone out; once an event has been notified it can only be cancelled.
+Events can also be uploaded in bulk from a CSV template, with a downloadable template provided.
+
+### Draft and publish
+
+An event starts as a draft. A draft is invisible to members, freely editable, and can be deleted outright.
+
+Publishing is a separate step, and it is what sends the invitations. Publishing invites everyone on the team, meaning every child and every flagged coach. The admin can deselect people before publishing.
+
+Once an event is published, cancelling is the only way to withdraw it. Cancelling asks the admin for a reason and notifies everyone. A published event can still be edited.
 
 Events appear in a list view and a calendar view. The calendar can be subscribed to from Google Calendar, iCal or Outlook, so new events appear there automatically.
 
@@ -90,15 +114,15 @@ A member who declines is asked for a reason. Only admins see it.
 
 An admin can override anyone's status, and can send a chaser to an individual who hasn't responded. Assumption: an automatic reminder also goes out 24 hours before the event unless the admin turns it off. Correct this if it's wrong.
 
-A member can block out a range of dates in their own calendar. They are then marked unavailable automatically for any event falling in that range.
+Members respond per event. There are no blackout dates and no date-range unavailability.
 
 ## Notifications
 
 Push notification and email only. There is no SMS anywhere in the app.
 
-Notifications go out for a new event invitation, a chaser, a reminder, a cancellation, and when the groups for an event are published.
+Notifications go out for a new event invitation, a chaser, a reminder, a cancellation, and when the groups for an event are published. When groups are re-published, only those whose group has changed are notified.
 
-Members can set their own notification preferences.
+Every adult sets their own notification preferences.
 
 ## Contacting people
 
@@ -108,7 +132,7 @@ From a member's entry an admin can call them, email them, or save them to the ph
 
 A parent sees their child's group and who is coaching it.
 
-A parent never sees any child's ability rating or school, anywhere in the app, and is never given either as the reason for a placement.
+A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
 
 ## Explicitly out of scope
 
