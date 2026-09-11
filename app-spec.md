@@ -38,6 +38,22 @@ Everyone is added as a player by default.
 
 Only a Team Admin can change anyone's role.
 
+## Coaches
+
+Coach is not a role. Roles are about what someone can do in the app; coaching is about what they do at a session. Most coaches have no admin rights, and some admins don't coach.
+
+Coach is a flag on a parent within a team, set by an admin and turned on or off at any point in the season as parents come and go. Roughly one in five parents is flagged, so a team of 75 children might have 15 coaches.
+
+Every coach is a parent of a child in that team. A parent who isn't flagged is never treated as a coach.
+
+Being flagged is what gets someone invited to an event as a coach. Whether they're coaching on a given night is their own availability answer, which they give separately from their child's, because a parent can be unavailable on a night their child still attends. A coach can only be placed in a group with their own child, so a night where the coach accepts and the child declines means that parent isn't coaching either.
+
+## Team settings
+
+Each team carries the numbers the allocation runs on: maximum groups, minimum coaches per group, coach-to-child ratio, and target and minimum group size. Defaults and meanings are in `allocation-rules.md`.
+
+An admin sets them per team, because turnout and age change what works. An admin can also override them on a single event, which applies to that event only and leaves the team's settings alone.
+
 ## Registered and unregistered members
 
 An admin adds a member by typing a name and a contact detail. That member exists and receives notifications straight away without doing anything. They are **unregistered**, and the admin can edit their details.

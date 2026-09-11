@@ -18,36 +18,62 @@ Person and account are separate on purpose. Availability is answered per person,
 - Ability rating per child, 1 to 5, where 1 is strongest and 5 is weakest. Admin-only.
 - School per child. Admin-only.
 - Parent-to-child links.
-- Min and max players per group. *TBC.*
-- Min coaches per group. *TBC.*
+- The team's settings, below.
+
+## Settings
+
+These are set per team by an admin, and can be overridden on a single event. An event override applies to that event only and never changes the team's settings.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| Maximum groups | 10 | Never exceeded. |
+| Minimum coaches per group | 1 | Never broken. |
+| Coach-to-child ratio | 1:8 | A ceiling on children per coach, checked within each group. |
+| Target group size | *TBC* | What the allocation aims for. |
+| Minimum group size | *TBC* | Below this, use fewer groups. |
+
+The ratio is a ceiling, not a target. Fewer children per coach is always acceptable. The older age groups will run at 1:10, which is why it's a setting rather than a constant.
+
+The ratio is checked group by group, not across the session. Twenty children in a group with two coaches fails, even if the session as a whole has enough coaches to average out.
 
 ## Deriving the number of groups
 
-Driven by both attendance and coach numbers on the night, not fixed in advance.
+Worked out on the night from the turnout and the coaches present, not fixed in advance.
 
-- The player count and the max per group set the floor on how many groups are needed.
-- The player count and the min per group set the ceiling.
-- The coach count and the min coaches per group set a second ceiling.
+Find the number of groups that satisfies all of the following and lands closest to the target group size:
 
-The real number of groups is the lowest of the ceilings, and must be at least the floor. If the coach ceiling falls below the floor there aren't enough coaches to run the session within the size limits. The app should say so plainly and let the admin proceed anyway.
+- No more than the maximum number of groups.
+- Every group has at least the minimum number of coaches.
+- Every group meets the coach-to-child ratio.
+- No group falls below the minimum group size.
+
+An admin can override the number of groups on an event. Every rule still applies, but the app can no longer adjust the count to make things fit, so a count that can't satisfy the rules is reported rather than silently changed.
+
+## When the rules can't all be met
+
+Tell the admin in plain words which rule can't be met and why, and suggest the change that would fix it. For example, that two more coaches would allow eight groups instead of six, or that dropping to five groups would meet the ratio.
+
+This is a normal outcome on a bad night, not an error. Say what's wrong and what would fix it, and let the admin proceed.
 
 ## Hard rules
 
 These are never broken by the allocation.
 
-1. A coach is in the same group as their own child.
-2. Every group is within the min and max player sizes.
-3. Every group has at least the minimum number of coaches.
+1. Every group has at least one coach. The children are young enough that a group without an adult is not a session.
+2. A coach is in the same group as their own child.
+3. Every group meets the coach-to-child ratio.
 
-Where a child has two parents coaching, both go to that child's group if it stays within the coach limits. If it doesn't, the admin resolves it.
+Group sizes give way before any of these. The target and minimum sizes are aims, and a group will go over its target if that's what it takes to keep every group staffed.
+
+Where a child has two parents coaching, both go to that child's group.
 
 ## Even spread of coaches and sizes
 
 The minimums above are floors, not targets. Both of the following apply on every allocation, whichever mode is in use.
 
-**Coaches are spread as evenly as the numbers allow.** Twelve coaches across four groups is 3/3/3/3, not 6/2/2/2, even though the second passes a minimum of two.
+**Coaches are spread as evenly as the numbers allow.** Twelve coaches across four groups is 3/3/3/3, not 6/2/2/2, even though the second passes a minimum of one.
 
-**Group sizes are as even as the numbers allow.** Thirty children across four groups is 8/8/7/7, not 12/12/5/5, even though the second sits inside a min of five and a max of twelve.
+**Group sizes are as even as the numbers allow.** Thirty children across four groups is 8/8/7/7, not 12/12/5/5.
 
 Where the numbers don't divide cleanly, the remainder is spread one per group rather than landing on one group.
 
@@ -76,7 +102,7 @@ In practice: take the children attending from one school and split them into as 
 
 Children who are the only attendee from their school that night can't satisfy the floor at all. Pool all of them into a single group together.
 
-That group is a group like any other. It is bound by the same min and max sizes and needs the same minimum number of coaches. If there are more singletons than the maximum group size allows, split them across two or more groups.
+That group is a group like any other. It is bound by the same sizes, the minimum coaches and the ratio. If there are more singletons than one group can take, split them across two or more groups.
 
 ### Balanced ability
 
@@ -98,6 +124,5 @@ Ability ratings and schools are admin-only. They must not appear anywhere a pare
 
 ## Open questions
 
-- Min and max players per group.
-- Min coaches per group.
+- Target and minimum group size. Everything else now has a default, so these are the last two numbers outstanding, and they need the club.
 - Whether a coach with children in two age groups can be allocated when those two sessions run at the same time. Probably an availability problem rather than an allocation one, but it hasn't been decided.
