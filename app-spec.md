@@ -228,11 +228,13 @@ Where the signed-in adult has more than one child, a row of chips above the list
 
 ### What an event row says
 
-The row leads with the event: the title, then the child's name in bold, the day, and the times. The age group is not repeated on a parent's row — the child's name already says which one it is, and a parent who has a child in two age groups knows which child is in which.
+The row leads with the event: the title, then the day and the times. The age group is not repeated on a parent's row, and neither is the child's name — a name appears **once per row, or not at all**.
 
 Times lead with the meet time, and only the meet time is labelled: "Meet 09:30 · 10:00–11:00". Where an event has no meet time the range stands alone. End times stay on matches, because the calendar feed needs them.
 
-Where a row carries more than one answer — a coaching parent's own answer alongside their child's — each status is labelled with whose it is: the child's first name, then "You". A single answer needs no label. The statuses sit stacked in a fixed column at the right of the row, so they form a straight edge down the list. Those labels are what tells a coaching parent the two answers are separate; no standing explainer is needed alongside them.
+The name, where it is needed, goes on the status rather than in the subline, because that is where it does work — it says whose answer this is. It appears when the row carries more than one answer, which is a coaching parent's own alongside their child's, and when the signed-in adult has more than one child, where the row would otherwise not say which of them it concerns. Where there is one child and one answer, there is no name in the subline and no label on the status: it could only be that child, and saying so twice says nothing.
+
+Labelled statuses read "Orla" and "You". They sit stacked in a fixed column at the right of the row, so they form a straight edge down the list. Those labels are what tells a coaching parent the two answers are separate; no standing explainer is needed alongside them.
 
 A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count.
 
@@ -276,7 +278,9 @@ There is no standing "everything answered" banner. A brief confirmation appears 
 
 Change answer opens the choice. It shows both options with the current answer already selected, alongside a way out that keeps the answer as it stands, and **writes nothing until the parent picks one**. A parent who taps it and walks away has changed nothing, and their child is still down as they were. It is not a dropdown, and it never clears the answer as a step on the way to replacing it.
 
-Where a school is waiting on a Club Admin, the dialog says so as plainly as the list does, and says what it means meanwhile: that the child is treated as having no school when squads are worked out. A school can also be set back to not recorded, because a parent who picked the wrong one needs a way back.
+A parent is shown the school they gave, plainly, as that child's school — whether or not it is yet on the club's list. What a Club Admin is confirming is whether the school joins the dropdown, which is a decision about a list. It is not something the parent can act on, and telling them their answer is provisional invites them to do something about it when there is nothing to do. The queue and the allocation behaviour are unchanged: an unconfirmed school still waits for a Club Admin, and the child is still counted a singleton until it is confirmed.
+
+A school can also be set back to not recorded, because a parent who picked the wrong one needs a way back.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
 

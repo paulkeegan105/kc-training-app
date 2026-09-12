@@ -325,6 +325,20 @@ Following it clears any child filter in the way, opens the earliest event it cou
 
 What is deliberately **not** being decided here is which element leads a row, or how training and matches should differ from each other. Both came up in the same review and both are theories about how a parent scans a list, which the trial will settle better than an argument will.
 
+
+**72. The child's name appeared twice on the same row.** Once in bold in the subline, and again as the label on the status — "Liam · Tuesday · Meet 18:30 · 18:45–20:00" with "Liam ✓ Accepted" sitting beside it. A coaching parent's row carried it three times, counting their own "You".
+
+**Decided.** A name appears once per row, or not at all. It goes on the status, because that is where it does work: it says whose answer this is. It appears when the row carries two answers — a coaching parent's own alongside their child's — and when the signed-in adult has more than one child, where the row would otherwise not say which of them it concerns. With one child and one answer there is no name in the subline and no label on the status; it could only be that child. The subline becomes the day, the meet time and the time range.
+
+
+**73. Parents were shown that a school was "awaiting club confirmation".** The tag appeared beside the child in the sidebar and an amber panel repeated it in the school dialog, explaining that the child was being treated as having no school until a Club Admin confirmed it.
+
+**Decided.** Removed from everything a parent sees. They are shown the school they gave, plainly, as that child's school.
+
+The reasoning is about whose decision it is. What a Club Admin confirms is whether the school joins the club's dropdown — a decision about a list, not about the child. A parent cannot act on it, cannot hurry it, and cannot fix it; telling them their answer is provisional invites them to try. The pending state was built for the admin queue and had leaked into the parent's view.
+
+**Item 20 and the "other" school handling are unchanged in substance.** The school still does not join the club list on a parent's say-so, it is still queued for a Club Admin, the admin's "School to confirm" filter still lists it, and the child is still counted a singleton in allocation until it is confirmed. Only what the parent is shown has changed.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

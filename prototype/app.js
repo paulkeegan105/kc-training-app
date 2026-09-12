@@ -8,6 +8,12 @@ const ratingChip = (r) => `<span class="rating r${r}">${r}</span>`;
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 const NO_SCHOOL_LABEL = "No school recorded";
 const schoolOf = (c) => c.school || NO_SCHOOL_LABEL;
+/* what a parent sees: the school they gave, whether or not it is on the club list yet */
+const schoolForParent = (c) => (c.school || c.schoolPending)
+  ? esc(c.school || c.schoolPending)
+  : `<span class="tag unreg">${NO_SCHOOL_LABEL}</span>`;
+
+/* what an admin sees: the same, plus the queue of schools waiting to join the list */
 const schoolDisplay = (c) => c.school ? esc(c.school)
   : c.schoolPending ? esc(c.schoolPending) + ' <span class="tag unreg">awaiting club confirmation</span>'
   : `<span class="tag unreg">${NO_SCHOOL_LABEL}</span>`;
@@ -1238,9 +1244,13 @@ function renderFamily() {
     const started = hasStarted(e);
     const people = entry.kids.concat(me.coachIn[t.id] ? [me] : []);
 
+    /* The name goes on the status, and only where it does work: a coaching parent's row
+       carries two answers, and an adult with more than one child needs to know whose
+       answer this is. One child, one answer, and a name would just be noise. */
+    const nameTheStatus = people.length > 1 || kids.length > 1;
     const chips = e.cancelled
       ? '<span class="tag cancelled">Cancelled</span>'
-      : people.length > 1
+      : nameTheStatus
         ? people.map((p) => labelledStatus(p.id === me.id ? "You" : p.firstName,
             e.status.get(p.id) || "none")).join("")
         : statusTag(e.status.get(people[0].id) || "none");
@@ -1252,7 +1262,6 @@ function renderFamily() {
     const rel = relativeDay(eventStart(e));
     const dayWord = (rel === "today" || rel === "tomorrow")
       ? rel.charAt(0).toUpperCase() + rel.slice(1) : e.dayName;
-    const who = entry.kids.map((k) => k.firstName).join(" and ");
 
     /* every answer for this event together, so a coaching parent sees their own beside
        their child's, with the squad cards under them rather than between them */
@@ -1268,7 +1277,7 @@ function renderFamily() {
         <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
         <span class="fev-main">
           <span class="fev-title">${esc(eventTitle(e))}</span>
-          <span class="fev-sub"><b>${esc(who)}</b> &middot; ${dayWord} &middot; ${times}</span>
+          <span class="fev-sub">${dayWord} &middot; ${times}</span>
         </span>
         <span class="fev-tags ${tagClass}">${chips}</span>
       </button>
@@ -1309,7 +1318,7 @@ function renderFamily() {
     <div class="childrow">
       <div class="cr-top">
         <div><div class="cn">${esc(k.name)}</div>
-          <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${schoolDisplay(k)}</div></div>
+          <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${schoolForParent(k)}</div></div>
         <button class="linkbtn" data-fedit="${k.id}">Change school</button>
       </div>
     </div>`).join("");
@@ -1353,7 +1362,7 @@ function renderFamily() {
           <span class="alert-words">${outstanding === 1
             ? `<b>1 answer still to give, for ${esc(owedWho)}, ${owedWhen}.</b>`
             : `<b>${outstanding} answers still to give.</b> The first is ${esc(owedWho)}, ${owedWhen}.`}</span>
-          <span class="alert-go" aria-hidden="true">&#8594;</span></button>`
+          <span class="alert-go">Take me there &#8594;</span></button>`
       : ""}
     <div class="family">
       <div>${chipRow}${body}</div>
@@ -1400,9 +1409,6 @@ function familyEditModal() {
     return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
       <h3 id="dlg-title">${esc(p.firstName)}'s school</h3>
       <div class="msub">${esc(t.name)}</div>
-      ${p.schoolPending ? `<div class="alert warn" style="margin-bottom:14px"><b>Waiting on the club.</b>
-        You gave ${esc(p.schoolPending)}, and a Club Admin has not confirmed it yet. Until they do,
-        ${esc(p.firstName)} is treated as having no school when squads are worked out.</div>` : ""}
       <div class="field${bad("school")}"><label for="f-school">School</label>
         <select id="f-school"${aria("school")}>
           ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === current ? "selected" : ""}>${esc(sc)}</option>`).join("")}
