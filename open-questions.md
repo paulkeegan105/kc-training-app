@@ -250,4 +250,8 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 
 ---
 
-The three I'd want answered before anything else are **1** (no Coach role), **2** (hard rules vs proceed anyway) and **12** (the TBC numbers) — the allocation engine can't be specified, let alone written, without them.
+Items **1** and **2** are answered, and **12** is down to one number: the minimum squad size, plus confirmation of the 8 and 12 that are currently working defaults rather than club decisions.
+
+The three I'd want answered before anything else now are **12** (that minimum, which the allocation still can't run without), **39** (data protection — the only item here with nothing recorded against it at all) and **51** (the session plan and the pitch layout diagram, which need the club before either can be built).
+
+Two others are less urgent but not settled: **31** and **32** hold proposals rather than decisions, and **35** still has no column definitions for either CSV template.
