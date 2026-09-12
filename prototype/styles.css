@@ -24,7 +24,7 @@
 
   --radius: 12px;
   --shadow: 0 1px 2px rgba(28,16,34,.07), 0 4px 14px rgba(28,16,34,.06);
-  --ring: 0 0 0 3px rgba(92,6,140,.28);
+  --ring: 0 0 0 3px rgba(92,6,140,.28); --focus: #5C068C;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,7 +45,7 @@
     --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #FFFFFF;
 
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
-    --ring: 0 0 0 3px rgba(201,160,232,.4);
+    --ring: 0 0 0 3px rgba(201,160,232,.4); --focus: #C9A0E8;
   }
 }
 :root[data-theme="dark"] {
@@ -61,7 +61,7 @@
   --header: #3A0559; --header-ink: #FFFFFF; --header-sub: #E4D2F2;
   --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #FFFFFF;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
-  --ring: 0 0 0 3px rgba(201,160,232,.4);
+  --ring: 0 0 0 3px rgba(201,160,232,.4); --focus: #C9A0E8;
 }
 
 * { box-sizing: border-box; }
@@ -71,7 +71,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
-:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 6px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
+/* Controls that fill their container get the ring drawn inside, so an ancestor with
+   overflow:hidden cannot cut it off. */
+.tabs button:focus-visible,
+.fev-head:focus-visible,
+.evhead:focus-visible,
+.persona:focus-visible,
+.moveto:focus-visible,
+.status-pick:focus-visible { outline-offset: -3px; }
+
+/* on the purple chrome the brand purple would be invisible, so the ring goes gold */
+.appbar :focus-visible { outline-color: var(--gold); }
 
 /* ---- fixed chrome ---- */
 .appbar { position: sticky; top: 0; z-index: 60; box-shadow: 0 2px 10px rgba(28,16,34,.18); }
@@ -331,7 +343,7 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 }
 .toggle input:checked + .track { background: var(--brand); border-color: var(--brand); }
 .toggle input:checked + .track::after { transform: translateX(16px); background: var(--brand-ink); }
-.toggle input:focus-visible + .track { box-shadow: var(--ring); }
+.toggle input:focus-visible + .track { outline: 3px solid var(--focus); outline-offset: 2px; }
 .toggle .tl { font-size: 12.5px; font-weight: 650; color: var(--muted); white-space: nowrap; }
 .toggle input:checked ~ .tl { color: var(--brand); }
 
@@ -493,3 +505,32 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 .linkbtn { background: none; border: 0; padding: 2px; font: inherit; font-size: 12.5px; color: var(--brand); text-decoration: underline; cursor: pointer; flex: none; }
 .linkbtn:hover { text-decoration: none; }
 .cr-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+/* ---- parent calendar: earlier events, child chips, paired statuses ---- */
+.earlier-row {
+  display: flex; align-items: center; gap: 9px; width: 100%; margin-bottom: 9px;
+  background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px;
+  padding: 10px 14px; font: inherit; font-size: 13.5px; font-weight: 600;
+  color: var(--muted); cursor: pointer; text-align: left;
+}
+.earlier-row:hover { color: var(--ink); border-color: var(--brand); }
+.earlier-row .caret { font-size: 11px; }
+.childchips { margin-bottom: 14px; }
+
+.st-pair { display: inline-flex; align-items: center; gap: 6px; }
+.st-pair .st-who { font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.fev-tags { gap: 14px; }
+
+/* the date tile reads as a date: number over month */
+.ev-when .dd, .ev-when .mm { display: block; }
+
+/* the outstanding banner is also the way to reach what it counts */
+.alert-action {
+  display: block; width: 100%; text-align: left; font: inherit; font-size: 13.5px;
+  cursor: pointer; border: 0; border-left: 3px solid var(--warn); margin-bottom: 16px;
+}
+.alert-action .alert-go { text-decoration: underline; white-space: nowrap; }
+.alert-action:hover .alert-go { text-decoration: none; }
+
+/* the deadline prompt sits with the answer it is prompting for */
+.kid-block .dl-line { font-size: 12.5px; font-weight: 600; margin-top: 5px; }

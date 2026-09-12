@@ -220,11 +220,37 @@ There is one export: an admin export of a session's squads, for printing or shar
 
 ## What parents see
 
-A parent sees the season calendar: every event of the season in date order, grouped by month, with the next upcoming one open by default. Past events stay on it, and a cancelled event stays in place with its reason. Drafts remain invisible to them. There are no status filters — upcoming, past and cancelled are the only states they can see, and the calendar already separates them.
+A parent sees the season calendar: every event of the season in date order, grouped by month, with the next upcoming one open by default. Drafts remain invisible to them.
+
+The list opens at the next upcoming event. Everything earlier collapses behind a single row reading "N earlier events", which expands in place. That is a collapse, not a filter: nothing is removed from the list, and a cancelled event stays inline wherever it falls, with its reason. There are no status filters — upcoming, past and cancelled are the only states a parent can see, and the calendar already separates them.
+
+Where the signed-in adult has more than one child, a row of chips above the list filters it by child: All, then one chip per child. It filters the list and nothing else. With one child there are no chips, and the subtitle under "Your family" carries the child's name instead.
+
+### What an event row says
+
+The row leads with the event: the title, then the child's name in bold, the day, and the times. The age group is not repeated on a parent's row — the child's name already says which one it is, and a parent who has a child in two age groups knows which child is in which.
+
+Times lead with the meet time, and only the meet time is labelled: "Meet 09:30 · 10:00–11:00". Where an event has no meet time the range stands alone. End times stay on matches, because the calendar feed needs them.
+
+Where a row carries more than one answer — a coaching parent's own answer alongside their child's — each status is labelled with whose it is: the child's first name, then "You". A single answer needs no label.
 
 A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count. Their own child is sorted to the top of the players and set in bold rather than annotated, with a hidden label so a screen reader still says which name is theirs.
 
-A cancelled event drops the answers-due line, the venue, the meet time and the whole response block. It keeps the date, the time, the age group, the opposition where there is one, and the cancellation reason.
+A cancelled event drops the answers-due line, the venue, the meet time and the whole response block. It keeps the date, the time, the opposition where there is one, and the cancellation reason.
+
+### Once an event has started
+
+An event that has started takes no more answers. The Yes and Can't make it buttons go, and so does Change answer. Whatever was answered still shows, with who answered and when. This is about the event having happened, not about the deadline: the deadline never locks anything (see the response deadline above).
+
+A finished event never says squads haven't been published yet. If squads were published it shows them; if they never were it says nothing, because there is nothing left to wait for.
+
+### Chasing answers
+
+The answers-due line appears only while that person's answer is outstanding. Once they answer either way it goes, because it was a prompt and there is nothing left to prompt for.
+
+Where the deadline has passed and the person never answered, the line says responses have closed and they can still **answer** — not that they can still change their answer, because there is no answer to change. Where an answer exists, nothing is shown at all.
+
+The count of answers still to give counts only events that can still be answered. A past event that was never answered drops out of it, because nothing can be done about it. The count is itself the way to reach what it counts: following it opens the first event it counted.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
 
@@ -233,6 +259,8 @@ A parent sees their own child's school, because they enter it themselves. They n
 The club's crest and colours live in one place and are used from there, so changing them is one change rather than a hunt. The crest is maintained by a Club Admin.
 
 All text meets WCAG AA contrast, 4.5:1 for body text and 3:1 for large text and interface controls, in both light and dark mode. That is a floor rather than an aspiration: a colour that cannot carry text at that contrast is used as a fill and not as text.
+
+Type is sized in rem or em, never in px, so that a browser or operating system font-size setting scales the page. Zoom is not a substitute. A parent who has set a larger default font — often the reason they set it is that they need it — gets nothing from a layout whose type is nailed to pixels, because a text-size setting only moves text sized in relative units. Spacing that has to hold text may be relative too; borders and hairlines can stay in px.
 
 ## Known gaps
 

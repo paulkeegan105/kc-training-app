@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>Parent banners — dev reference</title>
+<link rel="stylesheet" href="styles.css?v=11">
+<style>
+  .devpage { max-width: 880px; margin: 0 auto; padding: 26px 20px 80px; }
+  .devhead { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+  .devhead h1 { font-size: 22px; }
+  .devhead .spacer { flex: 1; }
+  .devnote { color: var(--muted); font-size: 13.5px; margin: 0 0 26px; line-height: 1.55; max-width: 62ch; }
+  .spec { margin-bottom: 26px; }
+  .when { margin-bottom: 9px; }
+  .when b { font-size: 14.5px; display: block; }
+  .when .fires { color: var(--muted); font-size: 13px; display: block; margin-top: 2px; }
+  .reach { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-top: 6px; }
+  .reach.yes { background: var(--ok-bg); color: var(--ok-ink); }
+  .reach.no { background: var(--warn-bg); color: var(--warn-ink); }
+  .demo { background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; padding: 16px; }
+  .demo .alert, .demo .note, .demo .pending, .demo .card { margin-bottom: 0; }
+  h2.devgroup { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+             font-weight: 700; margin: 34px 0 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="devpage">
+
+  <div class="devhead">
+    <div>
+      <h1>Parent banners</h1>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <p class="devnote">Every banner and inline notice a signed-in parent can be shown, across both the
+    coaching and non-coaching personas, with the condition that fires it. Linked from nowhere &mdash; open it by URL.
+    This is a static rendering, so it has to be kept in step with <code>app.js</code> by hand.</p>
+
+  <h2 class="devgroup">Page level</h2>
+
+  <div class="spec">
+    <div class="when"><b>Everything answered</b>
+      <span class="fires">Fires when: every event that can still be answered has an answer for every child, and for the adult if they coach.</span>
+      <span class="reach yes">Reachable: Helena Carroll, Joe Gallagher</span></div>
+    <div class="demo">
+      <div class="alert ok"><b>Everything answered.</b> You can change any answer below, at any time.</div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Answers still to give</b>
+      <span class="fires">Fires when: one or more answerable events are unanswered. Past and cancelled events never count. The whole banner is a button that opens the first event it counted.</span>
+      <span class="reach yes">Reachable: Aileen Byrne</span></div>
+    <div class="demo">
+      <button class="alert warn alert-action"><b>2 answers still to give.</b> Anything unanswered is shown below with
+        Yes and Can't make it against it. <span class="alert-go">Take me there</span></button>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Coaching explainer</b>
+      <span class="fires">Fires when: the signed-in adult is flagged as a coach in any team. Shown once at the top, never on the rows.</span>
+      <span class="reach yes">Reachable: Aileen Byrne</span></div>
+    <div class="demo">
+      <div class="note">You are asked about coaching separately from your children, because you can be
+        unavailable on a night they still attend. Both answers appear on each session below.</div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Nothing on the calendar</b>
+      <span class="fires">Fires when: no published events match the current child filter. Names the child when a chip is active, otherwise "your family".</span>
+      <span class="reach no">Not reachable with the sample data &mdash; every child has events</span></div>
+    <div class="demo">
+      <div class="card card-pad">Nothing on the calendar for Cian yet.
+        You'll get an email when the next session is published.</div>
+    </div>
+  </div>
+
+  <h2 class="devgroup">Inside an event row</h2>
+
+  <div class="spec">
+    <div class="when"><b>Cancelled</b>
+      <span class="fires">Fires when: the event is cancelled. Replaces the whole body &mdash; no venue, no meet time, no deadline, no answer controls.</span>
+      <span class="reach yes">Reachable: all three personas (26 Sep, Under 9)</span></div>
+    <div class="demo">
+      <div class="alert stop" style="margin:0"><b>Cancelled.</b> Pitch waterlogged after Friday's rain.</div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Deadline &mdash; still open</b>
+      <span class="fires">Fires when: this person has not answered, the event has not started, and the deadline is in the future. Disappears the moment they answer either way.</span>
+      <span class="reach yes">Reachable: Aileen Byrne (23 Sep, her own coaching answer)</span></div>
+    <div class="demo"><div class="kid-block" style="border:0">
+      <div class="dl-line dl-open">Answers due by Tue 22 Sep, 18:30</div>
+    </div></div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Deadline &mdash; closed, never answered</b>
+      <span class="fires">Fires when: this person has not answered, the event has not started, and the deadline has passed. Says "answer", not "change your answer", because there is no answer to change. Nothing locks.</span>
+      <span class="reach no">Not reachable with the sample data &mdash; no seeded event is both past its deadline and unanswered</span></div>
+    <div class="demo"><div class="kid-block" style="border:0">
+      <div class="dl-line dl-closed">Responses closed Fri 11 Sep, 11:30 &mdash; you can still answer</div>
+    </div></div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Who answered, and when</b>
+      <span class="fires">Fires when: an answer exists. Shows the answer that is live now and nothing else &mdash; no history. Three forms: this adult, the other adult on the account, an admin override.</span>
+      <span class="reach yes">Reachable: all three personas</span></div>
+    <div class="demo"><div class="kid-block" style="border:0">
+      <div class="ans-by">Accepted by you, Thu 27 Aug</div>
+      <div class="ans-by">Declined by Helena, Sun 6 Sep</div>
+      <div class="ans-by">Accepted by an admin, Mon 7 Sep</div>
+    </div></div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Squads not published yet</b>
+      <span class="fires">Fires when: the child is accepted, the event has not started, and squads have not been published. Never shown on an event that has already started.</span>
+      <span class="reach yes">Reachable: all three personas</span></div>
+    <div class="demo">
+      <div class="pending">Squads for this session haven't been published yet.
+        You'll see Cian's squad and coaches here as soon as they are.</div>
+    </div>
+  </div>
+
+  <h2 class="devgroup">Sidebar</h2>
+
+  <div class="spec">
+    <div class="when"><b>School awaiting confirmation</b>
+      <span class="fires">Fires when: a parent typed a school into "Other". It is held against the child, not added to the club list, and the child counts as a singleton until a Club Admin maps or adds it.</span>
+      <span class="reach no">Not reachable with the sample data &mdash; needs a parent to type one</span></div>
+    <div class="demo"><div class="childrow" style="border:0"><div class="cr-top"><div>
+      <div class="cn">Cian Carroll</div>
+      <div class="ct">Under 9 &middot; St Malachy's <span class="tag unreg">awaiting club confirmation</span></div>
+    </div><button class="linkbtn">Change school</button></div></div></div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>No school recorded</b>
+      <span class="fires">Fires when: the child has no school and none pending. School is prompted after signup rather than blocking it, so this is a normal state.</span>
+      <span class="reach no">Not reachable with the sample data &mdash; none of the three personas' children is missing one</span></div>
+    <div class="demo"><div class="childrow" style="border:0"><div class="cr-top"><div>
+      <div class="cn">Liam Carroll</div>
+      <div class="ct">Under 11 &middot; <span class="tag unreg">No school recorded</span></div>
+    </div><button class="linkbtn">Change school</button></div></div></div>
+  </div>
+
+  <h2 class="devgroup">Edit dialogs</h2>
+
+  <div class="spec">
+    <div class="when"><b>Hints</b>
+      <span class="fires">Always shown, under the field they belong to.</span>
+      <span class="reach yes">Reachable: all three personas</span></div>
+    <div class="demo">
+      <div class="field"><label>School</label>
+        <div class="hint">The club uses this to keep school friends together at training, and no other parent ever
+          sees it. If you type a school in yourself, the club will confirm it before it is used.</div></div>
+      <div class="field"><label>Email address</label><div class="hint">Where invitations and reminders go.</div></div>
+      <div class="field"><label>Phone number</label>
+        <div class="hint">Optional. Only a team admin can see it, and only to ring you.</div></div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Validation errors</b>
+      <span class="fires">Fires on save, when the field is empty or malformed. The dialog stays open.</span>
+      <span class="reach no">Not reachable without typing invalid input</span></div>
+    <div class="demo">
+      <div class="field"><div class="err">Pick a school, or type the name.</div></div>
+      <div class="field"><div class="err">A first name and a surname are both needed.</div></div>
+      <div class="field"><div class="err">That email address doesn't look right.</div></div>
+    </div>
+  </div>
+
+</div>
+<script>
+  document.getElementById("theme").onclick = function () {
+    var now = document.documentElement.getAttribute("data-theme");
+    var dark = now ? now === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  };
+</script>
+</body>
+</html>

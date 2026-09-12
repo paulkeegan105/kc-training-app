@@ -227,6 +227,44 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Not decided:** whether admins need a full audit trail — every answer, every change, who made it — for a disputed no-show or a safeguarding question. That is a different feature with a different retention question attached, and it belongs with item 39 rather than here.
 
+
+**57. Type is sized in px, so a font-size setting cannot reach it.** Every `font-size` in the prototype's stylesheet is in px — 112 declarations, none in rem or em. A browser or operating system font-size setting only scales text sized in relative units, so raising it does nothing at all to this page.
+
+**Decided, as a requirement on the real build.** Type must be sized in rem or em so that a font-size setting scales the page. The prototype is deliberately left in px: converting it would be a large, mechanical change to throwaway code and would prove nothing that this item does not already record.
+
+Worth being precise about what is and is not broken. The prototype **passes WCAG 1.4.4 Resize text**, because that success criterion is met through browser zoom, and zoom works: checked at the 200% equivalent, there is no horizontal overflow, no clipped text, the header stays intact and the two-column family layout collapses to one. What fails is narrower and more human — a user who has raised their system font, very often the user who most needs it, opens this page and finds it unchanged. They then have to discover zoom separately, on every device, for this one site.
+
+
+**58. A past event still offered Yes and Can't make it.** The answer controls were driven by the response status alone, so a session that finished three weeks ago still invited a parent to say whether their child was coming, and still promised that squads would be published "as soon as they are".
+
+**Decided.** An event that has started takes no more answers. Yes, Can't make it and Change answer all go once the start time has passed. Whatever was answered still shows, with who answered and when. A finished event never says squads haven't been published: if they were published it shows them, and if they never were it shows nothing, because there is nothing left to wait for.
+
+This is about the event having happened, not about the deadline. **Item 53's decision is unchanged: nothing locks at the deadline.** A parent can still answer and still change an answer right up to the moment the session starts.
+
+
+**59. The answers-due line was shown whether or not there was anything to answer.** It sat in the event body regardless of status, so a parent who had answered weeks ago was still told when answers were due.
+
+**Decided.** The line appears only while that person's answer is outstanding, and disappears the moment they answer either way. It is a prompt, and once answered there is nothing left to prompt for. It also never appears on an event that has started.
+
+**Item 53's decision is unchanged — nothing locks.** This only affects what is displayed, not what a parent can do. The Change answer control is governed by whether the event has started (item 58), never by the deadline.
+
+
+**60. "Responses closed — you can still change your answer" was shown to people who had never answered.** The wording assumed an answer existed. For a parent who had not replied at all, it offered to change something that was not there, and buried the thing they actually still could do.
+
+**Decided.** Where the deadline has passed and no answer was given, the line reads "Responses closed … — you can still answer". Where an answer exists the existing wording stands, and in practice it is not shown at all, because item 59 drops the line once an answer exists.
+
+**Item 53's decision is unchanged — nothing locks.** This is a wording fix on a line that was already telling the truth about what a parent could do.
+
+
+**61. A parent with children in two age groups had one undifferentiated list.** Both children's events ran together in date order with nothing to separate them, which is right as a default but gives no way to answer the question "what has Liam got coming up".
+
+**Decided.** A row of chips sits directly above the list: All, then one chip per child. It filters the list below it and nothing else — it is not in the header, it is not tabs, and it does not touch the sidebar or the counts. It appears only when the signed-in adult has more than one child. When it appears, the children's names come out of the subtitle under "Your family", because the chips already carry them; with one child the subtitle keeps the name.
+
+
+**62. Parent-facing rows repeated the age group.** Every row read "Cian · Under 9 · Wednesday · 18:30–19:45". The age group was doing no work: a parent knows which age group their own child is in, and where they have two children the child's name already distinguishes the rows.
+
+**Decided.** The age group comes off parent-facing event rows entirely. The child's name carries it, and is set in bold so it reads as the anchor of the line. The age group stays everywhere on the admin side, where a Team Admin does move between age groups and needs to know which one they are looking at.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

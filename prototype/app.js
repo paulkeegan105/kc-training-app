@@ -33,6 +33,8 @@ const state = {
   signedInId: null,
   editScope: "admin",
   familyOpenId: null,
+  familyShowEarlier: false,
+  familyChild: "all",
   teamId: "u9",
   eventId: null,
   settings: null,
@@ -1068,10 +1070,16 @@ function answeredLine(e, personId) {
   return `<div class="ans-by">${word} by ${esc(whoBy)}${when ? ", " + fmtDay(when) : ""}</div>`;
 }
 
+/* an event stops taking answers once it has started */
+function hasStarted(e) { return eventStart(e) <= NOW; }
+
 function squadPanel(entry, person) {
   const e = entry.event, me = signedIn();
   const sq = squadForChild(e, person.id);
   if (!sq) {
+    // a finished session either published squads or never will; either way there is
+    // nothing to promise, so say nothing
+    if (hasStarted(e)) return "";
     return `<div class="pending">Squads for this session haven't been published yet.
       You'll see ${esc(person.firstName)}'s squad and coaches here as soon as they are.</div>`;
   }
@@ -1100,16 +1108,31 @@ function squadPanel(entry, person) {
     </div>`;
 }
 
+/* The deadline line is a prompt, so it only appears while there is something to prompt
+   for. Nothing locks when it passes — see open-questions item 53. */
+function deadlineLine(e, personId) {
+  if (hasStarted(e)) return "";
+  if ((e.status.get(personId) || "none") !== "none") return "";
+  const ds = deadlineState(e);
+  return `<div class="dl-line ${ds.closed ? "dl-closed" : "dl-open"}">${ds.closed
+    ? "Responses closed " + fmtWhen(deadlineFor(e)) + " &mdash; you can still answer"
+    : "Answers due by " + fmtWhen(deadlineFor(e))}</div>`;
+}
+
 function answerBlock(entry, person, label) {
   const e = entry.event;
   const st = e.status.get(person.id) || "none";
+  const started = hasStarted(e);
 
-  const control = st === "none"
-    ? `<span class="answer-row">
-        <button class="btn choice" data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
-        <button class="btn choice" data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`
-    : `<span class="answer-row">
-        <button class="btn" data-change="${person.id}" data-ev="${e.id}">Change answer</button></span>`;
+  let control = "";
+  if (!started) {
+    control = st === "none"
+      ? `<span class="answer-row">
+          <button class="btn choice" data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
+          <button class="btn choice" data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`
+      : `<span class="answer-row">
+          <button class="btn" data-change="${person.id}" data-ev="${e.id}">Change answer</button></span>`;
+  }
 
   return `<div class="kid-block">
       <div class="ans-row">
@@ -1119,67 +1142,103 @@ function answerBlock(entry, person, label) {
         ${control}
       </div>
       ${answeredLine(e, person.id)}
+      ${deadlineLine(e, person.id)}
       ${person.type === "child" && st === "accepted" ? squadPanel(entry, person) : ""}
     </div>`;
+}
+
+/* a status with the name it belongs to, for rows carrying more than one */
+const labelledStatus = (who, st) =>
+  `<span class="st-pair"><span class="st-who">${esc(who)}</span>${statusTag(st)}</span>`;
+
+function groupByMonth(list) {
+  const months = [];
+  list.forEach((entry) => {
+    const m = entry.event.longDate.split(" ").slice(2).join(" ");
+    if (!months.length || months[months.length - 1].label !== m) months.push({ label: m, rows: [] });
+    months[months.length - 1].rows.push(entry);
+  });
+  return months;
 }
 
 function renderFamily() {
   const me = signedIn();
   const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
-  const entries = familyEvents(me);
+  const all = familyEvents(me);
 
-  const upcoming = entries.filter((x) => !x.event.past);
-  if (!state.familyOpenId || !entries.some((x) => x.event.id === state.familyOpenId)) {
-    const next = upcoming.find((x) => !x.event.cancelled) || upcoming[0] || entries[entries.length - 1];
+  const filtered = state.familyChild && state.familyChild !== "all"
+    ? all.filter((x) => x.kids.some((k) => k.id === Number(state.familyChild)))
+    : all;
+
+  const firstUpcoming = filtered.findIndex((x) => !hasStarted(x.event));
+  const earlier = firstUpcoming === -1 ? filtered.slice() : filtered.slice(0, firstUpcoming);
+  const rest = firstUpcoming === -1 ? [] : filtered.slice(firstUpcoming);
+
+  const answerable = rest.filter((x) => !x.event.cancelled);
+  if (!state.familyOpenId || !filtered.some((x) => x.event.id === state.familyOpenId)) {
+    const next = answerable[0] || rest[0] || earlier[earlier.length - 1];
     state.familyOpenId = next ? next.event.id : null;
   }
 
-  const months = [];
-  entries.forEach((entry) => {
-    const m = entry.event.longDate.split(" ").slice(2).join(" ");
-    if (!months.length || months[months.length - 1].label !== m) months.push({ label: m, rows: [] });
-    months[months.length - 1].rows.push(entry);
-  });
+  const renderRow = (entry) => {
+    const e = entry.event, t = entry.team;
+    const open = e.id === state.familyOpenId;
+    const started = hasStarted(e);
+    const people = entry.kids.concat(me.coachIn[t.id] ? [me] : []);
 
-  const body = months.map((m) => `
-    <div class="month">${m.label}</div>
-    ${m.rows.map((entry) => {
-      const e = entry.event, t = entry.team;
-      const open = e.id === state.familyOpenId;
-      const who = entry.kids.map((k) => k.firstName).join(" and ");
-      const people = entry.kids.concat(me.coachIn[t.id] ? [me] : []);
+    const chips = e.cancelled
+      ? '<span class="tag cancelled">Cancelled</span>'
+      : people.length > 1
+        ? people.map((p) => labelledStatus(p.id === me.id ? "You" : p.firstName,
+            e.status.get(p.id) || "none")).join("")
+        : statusTag(e.status.get(people[0].id) || "none");
 
-      const chips = e.cancelled
-        ? '<span class="tag cancelled">Cancelled</span>'
-        : people.map((p) => statusTag(e.status.get(p.id) || "none")).join(" ");
+    const times = (e.meetTime ? "Meet " + e.meetTime + " &middot; " : "") + e.time + "&ndash;" + e.endTime;
+    const who = entry.kids.map((k) => k.firstName).join(" and ");
 
-      const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
-        .map((k) => answerBlock(entry, k, k.name)).join("")
-        + (me.coachIn[t.id] ? answerBlock(entry, me, "You, coaching") : "");
+    const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
+      .map((k) => answerBlock(entry, k, k.name)).join("")
+      + (me.coachIn[t.id] ? answerBlock(entry, me, "You, coaching") : "");
 
-      return `<div class="fev ${open ? "is-open" : ""} ${e.past ? "is-past" : ""} ${e.cancelled ? "is-cancelled" : ""}">
-        <button class="fev-head" data-fev="${e.id}" aria-expanded="${open}">
-          <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
-          <span class="fev-main">
-            <span class="fev-title">${esc(eventTitle(e))}</span>
-            <span class="fev-sub">${esc(who)} &middot; ${t.name} &middot; ${e.dayName} &middot; ${e.time}&ndash;${e.endTime}</span>
-          </span>
-          <span class="fev-tags">${chips}</span>
-        </button>
-        ${open ? `<div class="fev-body">
-          ${e.cancelled
-            ? `<div class="alert stop" style="margin:0">
-                 <b>Cancelled.</b> ${esc(e.cancelled)}</div>`
-            : `<div class="fev-facts">
-                 <span>${esc(e.venue)}${e.away ? " &middot; away" : ""}</span>
-                 <span>Meet at ${e.meetTime}</span>
-                 <span class="dl-line ${deadlineState(e).closed ? "dl-closed" : "dl-open"}">${deadlineState(e).closed
-                   ? "Responses closed " + fmtWhen(deadlineFor(e)) + " &mdash; you can still change your answer"
-                   : "Answers due by " + fmtWhen(deadlineFor(e))}</span>
-               </div>${blocks}`}
-        </div>` : ""}
-      </div>`;
-    }).join("")}`).join("");
+    return `<div class="fev ${open ? "is-open" : ""} ${started ? "is-past" : ""} ${e.cancelled ? "is-cancelled" : ""}"
+        id="fev-${e.id}">
+      <button class="fev-head" data-fev="${e.id}" aria-expanded="${open}">
+        <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
+        <span class="fev-main">
+          <span class="fev-title">${esc(eventTitle(e))}</span>
+          <span class="fev-sub"><b>${esc(who)}</b> &middot; ${e.dayName} &middot; ${times}</span>
+        </span>
+        <span class="fev-tags">${chips}</span>
+      </button>
+      ${open ? `<div class="fev-body">
+        ${e.cancelled
+          ? `<div class="alert stop" style="margin:0"><b>Cancelled.</b> ${esc(e.cancelled)}</div>`
+          : `<div class="fev-facts"><span>${esc(e.venue)}${e.away ? " &middot; away" : ""}</span></div>${blocks}`}
+      </div>` : ""}
+    </div>`;
+  };
+
+  const renderMonths = (list, skipFirstLabel) => groupByMonth(list).map((m, i) =>
+    `${i === 0 && m.label === skipFirstLabel ? "" : `<div class="month">${m.label}</div>`}`
+    + m.rows.map(renderRow).join("")).join("");
+
+  const earlierBlock = earlier.length
+    ? `<button class="earlier-row" id="earlier-toggle" aria-expanded="${state.familyShowEarlier}">
+         <span class="caret" aria-hidden="true">${state.familyShowEarlier ? "&#9662;" : "&#9656;"}</span>
+         ${plural(earlier.length, "earlier event", "earlier events")}
+       </button>
+       ${state.familyShowEarlier ? renderMonths(earlier) : ""}`
+    : "";
+
+  // expanding the earlier events must not print the same month heading twice in a row
+  const lastEarlierMonth = state.familyShowEarlier && earlier.length
+    ? earlier[earlier.length - 1].event.longDate.split(" ").slice(2).join(" ") : null;
+
+  const body = filtered.length
+    ? earlierBlock + renderMonths(rest, lastEarlierMonth)
+    : `<div class="card card-pad">Nothing on the calendar for ${state.familyChild && state.familyChild !== "all"
+        ? esc(BY_ID.get(Number(state.familyChild)).firstName) : "your family"} yet.
+        You'll get an email when the next session is published.</div>`;
 
   const childCards = kids.map((k) => `
     <div class="childrow">
@@ -1190,30 +1249,40 @@ function renderFamily() {
       </div>
     </div>`).join("");
 
-  const outstanding = upcoming.reduce((n, entry) => {
-    if (entry.event.cancelled) return n;
-    let c = entry.kids.filter((k) => (entry.event.status.get(k.id) || "none") === "none").length;
-    if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") c++;
-    return n + c;
-  }, 0);
+  /* only events that can still be answered count as owed */
+  const owed = [];
+  answerable.forEach((entry) => {
+    entry.kids.forEach((k) => { if ((entry.event.status.get(k.id) || "none") === "none") owed.push(entry); });
+    if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") owed.push(entry);
+  });
+  const outstanding = owed.length;
+  const firstOwed = owed[0];
   const coachesSomewhere = TEAMS.some((t) => me.coachIn[t.id]);
+
+  const chipRow = kids.length > 1
+    ? `<div class="toolbar childchips" role="group" aria-label="Filter by child">
+        ${[["all", "All"]].concat(kids.map((k) => [String(k.id), k.firstName]))
+          .map(([v, l]) => `<button class="chip" data-childchip="${v}"
+            aria-pressed="${String(state.familyChild || "all") === v}">${esc(l)}</button>`).join("")}
+       </div>`
+    : "";
 
   el("view-family").innerHTML = `
     <div class="page-head">
       <div><h2>Your family</h2>
-        <div class="count">${esc(kids.map((k) => k.firstName).join(" and "))}</div></div>
+        ${kids.length > 1 ? "" : `<div class="count">${esc(kids.map((k) => k.firstName).join(" and "))}</div>`}</div>
     </div>
-    <div class="alert ${outstanding ? "warn" : "ok"}" style="margin-bottom:16px">
-      ${outstanding
-        ? `<b>${plural(outstanding, "answer", "answers")} still to give.</b> Anything unanswered is shown below with
-           Yes and Can't make it against it.`
-        : `<b>Everything answered.</b> You can change any answer below, at any time.`}
-    </div>
+    ${outstanding
+      ? `<button class="alert warn alert-action" id="goto-owed">
+          <b>${plural(outstanding, "answer", "answers")} still to give.</b> Anything unanswered is shown below with
+          Yes and Can't make it against it. <span class="alert-go">Take me there</span></button>`
+      : `<div class="alert ok" style="margin-bottom:16px">
+          <b>Everything answered.</b> You can change any answer below, at any time.</div>`}
     ${coachesSomewhere ? `<div class="note" style="margin-bottom:16px">You are asked about coaching separately
       from your children, because you can be unavailable on a night they still attend. Both answers appear on
       each session below.</div>` : ""}
     <div class="family">
-      <div>${body}</div>
+      <div>${chipRow}${body}</div>
       <div>
         <div class="side-card">
           <h3>Your children</h3>
@@ -1232,7 +1301,7 @@ function renderFamily() {
     </div>
     ${familyEditModal()}`;
 
-  wireFamily();
+  wireFamily(firstOwed);
 }
 
 function familyEditModal() {
@@ -1275,8 +1344,27 @@ function familyEditModal() {
     ${err}${actions}</div></div>`;
 }
 
-function wireFamily() {
+function wireFamily(firstOwed) {
   const root = el("view-family");
+
+  const toggle = el("earlier-toggle");
+  if (toggle) toggle.onclick = () => { state.familyShowEarlier = !state.familyShowEarlier; renderFamily(); };
+
+  root.querySelectorAll("[data-childchip]").forEach((b) =>
+    b.onclick = () => {
+      state.familyChild = b.dataset.childchip;
+      state.familyOpenId = null;
+      renderFamily();
+    });
+
+  const goto = el("goto-owed");
+  if (goto && firstOwed) goto.onclick = () => {
+    state.familyOpenId = firstOwed.event.id;
+    if (hasStarted(firstOwed.event)) state.familyShowEarlier = true;
+    renderFamily();
+    const node = el("fev-" + firstOwed.event.id);
+    if (node) node.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
   const evById = (id) => TEAMS.flatMap((t) => t.events).find((e) => e.id === id);
 
   root.querySelectorAll("[data-fev]").forEach((b) =>
