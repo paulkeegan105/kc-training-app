@@ -534,3 +534,31 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 
 /* the deadline prompt sits with the answer it is prompting for */
 .kid-block .dl-line { font-size: 12.5px; font-weight: 600; margin-top: 5px; }
+
+/* ---- the current answer, shown as selected while choosing ---- */
+.btn.choice.is-selected {
+  border-color: var(--brand); background: var(--brand-soft); color: var(--brand-soft-ink);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+/* ---- a confirmation that goes away on its own ---- */
+#toast-host { position: fixed; left: 0; right: 0; bottom: 26px; display: grid; justify-items: center; gap: 8px; z-index: 200; pointer-events: none; }
+.toast {
+  background: var(--ink); color: var(--bg); font-size: 13.5px; font-weight: 600;
+  padding: 11px 18px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  animation: toast-in .18s ease-out; max-width: 90vw;
+}
+.toast.out { opacity: 0; transition: opacity .6s ease-in; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } .toast.out { transition: none; } }
+
+/* ---- statuses line up in their own column down the list ---- */
+.fev-tags { width: 168px; flex: none; }
+.fev-tags.one { justify-content: center; align-items: flex-end; }
+.fev-tags.stacked { flex-direction: column; align-items: flex-end; justify-content: center; gap: 4px; }
+.fev-tags .st-pair { justify-content: flex-end; }
+
+/* ---- the earlier-events control ---- */
+.earlier-row .caret { transition: transform .15s ease; display: inline-block; }
+.earlier-row .caret.up { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .earlier-row .caret { transition: none; } }

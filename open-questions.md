@@ -265,6 +265,44 @@ This is about the event having happened, not about the deadline. **Item 53's dec
 
 **Decided.** The age group comes off parent-facing event rows entirely. The child's name carries it, and is set in bold so it reads as the anchor of the line. The age group stays everywhere on the admin side, where a Team Admin does move between age groups and needs to know which one they are looking at.
 
+
+**63. The outstanding-answers count covered the whole season.** It counted every unanswered event to the end of the term, so a parent who had answered everything for the next fortnight was still told they owed four answers, three of which were for sessions in October. A number that is always non-zero stops being read.
+
+**Decided.** The count covers the next seven days: "N answers still to give in the next 7 days." It still counts only events that can still be answered, and it is still the way to reach them — following it opens the earliest event it counted. Outside that window there is no count and no banner; the row statuses carry it, which is what they are for.
+
+**This changes what is shown, not what can be answered.** Nothing locks. A parent can still answer any event at any distance, from its own row, exactly as item 53 records.
+
+
+**64. Two standing banners were telling parents things the page already showed.** A green "Everything answered" sat at the top for the whole visit, and a coaching explainer sat under it on every visit by a coaching parent.
+
+**Decided.** Both go.
+
+The green banner is replaced by a brief confirmation shown when an answer is given, which fades on its own. The information a parent wants after answering is that their answer landed, and that is a moment, not a state. It is announced once to a screen reader rather than left in the page for one to find.
+
+The coaching explainer is replaced by the labelled statuses on the row: "Orla — Accepted" over "You — Accepted". Showing a coaching parent that the two answers are separate works better than telling them, on every visit, for the life of the account.
+
+
+**65. Squad lists pulled the reader's own child to the top.** Their child was sorted first and set in bold, ahead of an otherwise alphabetical list.
+
+**Decided.** Plain alphabetical by first name, with nobody pulled to the top. A squad list is read to find a name in it, and a list that is alphabetical everywhere except the first entry is slower to scan, not faster. The reader's own child, and a coach's own name, stay bold where they fall, with the hidden screen-reader label unchanged.
+
+Sorting is collated so fadas order with their base letter — Áine with the As, not after Z. With Irish given names all through the club, a plain code-point sort would put every fada-carrying name after Z.
+
+
+**66. The header carried a role line.** It read "Parent", or "Coach, Under 9", or "Team Admin, Under 9 · Team Admin, Under 11" under the signed-in name.
+
+**Decided.** The header carries the name and nothing else. The role line cannot describe an adult who coaches two age groups without either lying or growing, and it was duplicating what the event rows already say per event — which is the honest place for it, because coaching is answered per session, not held as a standing fact. Anything needed to tell test accounts apart belongs on the sign-in screen.
+
+
+**67. A prompt asking non-coaching parents to register interest in coaching.** Raised while working on the parent's view: every club is short of coaches, and the parents looking at this screen are exactly the people who could volunteer.
+
+**Raised and parked for v1.** Not built. It needs decisions that are the club's rather than the app's: who receives an expression of interest, what happens next, whether a parent who says yes is committing to anything, and whether vetting is a precondition before the club can even ask. A prompt that collects interest nobody acts on is worse than no prompt.
+
+
+**68. A season totals summary for parents** — sessions attended, sessions missed, that kind of thing.
+
+**Raised and parked for v1.** Not built. Attendance tracking is explicitly out of scope, so the only thing the app could total is what was *answered*, which is not the same as what happened and would be read as if it were. A child marked accepted who did not travel would appear in the total as having been there. Totals like these also invite comparison between children, which cuts against keeping ratings admin-only.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

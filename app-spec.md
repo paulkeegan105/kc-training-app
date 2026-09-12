@@ -222,7 +222,7 @@ There is one export: an admin export of a session's squads, for printing or shar
 
 A parent sees the season calendar: every event of the season in date order, grouped by month, with the next upcoming one open by default. Drafts remain invisible to them.
 
-The list opens at the next upcoming event. Everything earlier collapses behind a single row reading "N earlier events", which expands in place. That is a collapse, not a filter: nothing is removed from the list, and a cancelled event stays inline wherever it falls, with its reason. There are no status filters — upcoming, past and cancelled are the only states a parent can see, and the calendar already separates them.
+The list opens at the next upcoming event. Everything earlier collapses behind a single row that reads as the control it is — "Show 6 earlier events", with a chevron that turns as it opens — and expands in place. That is a collapse, not a filter: nothing is removed from the list, and a cancelled event stays inline wherever it falls, with its reason. There are no status filters — upcoming, past and cancelled are the only states a parent can see, and the calendar already separates them.
 
 Where the signed-in adult has more than one child, a row of chips above the list filters it by child: All, then one chip per child. It filters the list and nothing else. With one child there are no chips, and the subtitle under "Your family" carries the child's name instead.
 
@@ -232,9 +232,13 @@ The row leads with the event: the title, then the child's name in bold, the day,
 
 Times lead with the meet time, and only the meet time is labelled: "Meet 09:30 · 10:00–11:00". Where an event has no meet time the range stands alone. End times stay on matches, because the calendar feed needs them.
 
-Where a row carries more than one answer — a coaching parent's own answer alongside their child's — each status is labelled with whose it is: the child's first name, then "You". A single answer needs no label.
+Where a row carries more than one answer — a coaching parent's own answer alongside their child's — each status is labelled with whose it is: the child's first name, then "You". A single answer needs no label. The statuses sit stacked in a fixed column at the right of the row, so they form a straight edge down the list. Those labels are what tells a coaching parent the two answers are separate; no standing explainer is needed alongside them.
 
-A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count. Their own child is sorted to the top of the players and set in bold rather than annotated, with a hidden label so a screen reader still says which name is theirs.
+A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count.
+
+Both lists are in plain alphabetical order by first name, with nobody pulled to the top. A squad list is read to find a name in it, and a list that is alphabetical everywhere except the first entry is slower to scan, not faster. The reader's own child, and a coach's own name, are set in bold where they fall, with a hidden label so a screen reader still says which name is theirs.
+
+Sorting is collated so that fadas order with their base letter: Áine belongs with the As, not after Z.
 
 A cancelled event drops the answers-due line, the venue, the meet time and the whole response block. It keeps the date, the time, the opposition where there is one, and the cancellation reason.
 
@@ -250,9 +254,21 @@ The answers-due line appears only while that person's answer is outstanding. Onc
 
 Where the deadline has passed and the person never answered, the line says responses have closed and they can still **answer** — not that they can still change their answer, because there is no answer to change. Where an answer exists, nothing is shown at all.
 
-The count of answers still to give counts only events that can still be answered. A past event that was never answered drops out of it, because nothing can be done about it. The count is itself the way to reach what it counts: following it opens the first event it counted.
+The count of answers still to give covers the next seven days, not the season: "N answers still to give in the next 7 days." It counts only events that can still be answered, so a past event that was never answered drops out of it. The count is itself the way to reach what it counts: following it opens the earliest event it counted.
+
+Outside that window there is no count and no banner. The row statuses carry it, which is what they are for. **This changes what is shown, not what can be answered.** Nothing locks, and a parent can answer any event at any distance, from its own row.
+
+There is no standing "everything answered" banner. A brief confirmation appears when an answer is given and fades on its own, rather than a reassurance sitting on the page for the whole visit. It is announced once to a screen reader rather than left in the page for one to find.
+
+### Changing an answer
+
+Change answer opens the choice. It shows both options with the current answer already selected, and **writes nothing until the parent picks one**. A parent who taps it and walks away has changed nothing, and their child is still down as they were. It is not a dropdown, and it never clears the answer as a step on the way to replacing it.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
+
+## What the header carries
+
+The header carries the club, the age group where an admin has one to switch, the signed-in person's name, and sign out. It does not carry their role. A role line cannot describe an adult who coaches two age groups without either lying or growing, and the event rows already say who is coaching what, per event. Anything needed to tell test accounts apart belongs on the sign-in screen.
 
 ## Branding and accessibility
 

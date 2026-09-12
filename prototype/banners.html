@@ -42,31 +42,34 @@
   <h2 class="devgroup">Page level</h2>
 
   <div class="spec">
-    <div class="when"><b>Everything answered</b>
-      <span class="fires">Fires when: every event that can still be answered has an answer for every child, and for the adult if they coach.</span>
-      <span class="reach yes">Reachable: Helena Carroll, Joe Gallagher</span></div>
-    <div class="demo">
-      <div class="alert ok"><b>Everything answered.</b> You can change any answer below, at any time.</div>
+    <div class="when"><b>Answer confirmation</b>
+      <span class="fires">Fires when: an answer is given or changed. Announced once with role="status", then fades on its own. It never persists for the visit &mdash; there is no standing "everything answered" banner.</span>
+      <span class="reach yes">Reachable: all three personas, on answering</span></div>
+    <div class="demo" style="display:flex;gap:10px;flex-wrap:wrap">
+      <span class="toast" style="animation:none">Cian is down as coming.</span>
+      <span class="toast" style="animation:none">Orla is marked as not coming.</span>
+      <span class="toast" style="animation:none">You are down as coming.</span>
     </div>
   </div>
 
   <div class="spec">
     <div class="when"><b>Answers still to give</b>
-      <span class="fires">Fires when: one or more answerable events are unanswered. Past and cancelled events never count. The whole banner is a button that opens the first event it counted.</span>
+      <span class="fires">Fires when: one or more events in the next seven days are unanswered. Past and cancelled events never count, and neither does anything further out than a week &mdash; those are carried by the row statuses. The whole banner is a button that opens the earliest event it counted. Nothing locks: an event any distance away can still be answered from its own row.</span>
       <span class="reach yes">Reachable: Aileen Byrne</span></div>
     <div class="demo">
-      <button class="alert warn alert-action"><b>2 answers still to give.</b> Anything unanswered is shown below with
-        Yes and Can't make it against it. <span class="alert-go">Take me there</span></button>
+      <button class="alert warn alert-action"><b>2 answers still to give in the next 7 days.</b> <span class="alert-go">Take me there</span></button>
     </div>
   </div>
 
   <div class="spec">
-    <div class="when"><b>Coaching explainer</b>
-      <span class="fires">Fires when: the signed-in adult is flagged as a coach in any team. Shown once at the top, never on the rows.</span>
+    <div class="when"><b>Two answers on one row</b>
+      <span class="fires">Fires when: a coaching parent has both their own answer and their child's on the same event. Each status is labelled with whose it is, stacked and right-aligned. This replaced the coaching explainer banner.</span>
       <span class="reach yes">Reachable: Aileen Byrne</span></div>
     <div class="demo">
-      <div class="note">You are asked about coaching separately from your children, because you can be
-        unavailable on a night they still attend. Both answers appear on each session below.</div>
+      <span class="fev-tags stacked" style="display:inline-flex">
+        <span class="st-pair"><span class="st-who">Orla</span><span class="st st-accepted"><span class="st-mark">&check;</span>Accepted</span></span>
+        <span class="st-pair"><span class="st-who">You</span><span class="st st-declined"><span class="st-mark">&minus;</span>Declined</span></span>
+      </span>
     </div>
   </div>
 
@@ -127,6 +130,18 @@
     <div class="demo">
       <div class="pending">Squads for this session haven't been published yet.
         You'll see Cian's squad and coaches here as soon as they are.</div>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="when"><b>Changing an answer</b>
+      <span class="fires">Fires when: Change answer is tapped. Both options are shown with the current answer selected, and nothing is written until one is picked &mdash; tapping Change answer and walking away changes nothing.</span>
+      <span class="reach yes">Reachable: all three personas, on any answered event that has not started</span></div>
+    <div class="demo">
+      <span class="answer-row">
+        <button class="btn choice is-selected" aria-pressed="true">Yes, coming</button>
+        <button class="btn choice" aria-pressed="false">Can't make it</button>
+      </span>
     </div>
   </div>
 

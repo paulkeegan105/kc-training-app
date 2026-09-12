@@ -35,6 +35,7 @@ const state = {
   familyOpenId: null,
   familyShowEarlier: false,
   familyChild: "all",
+  familyEditing: null,
   teamId: "u9",
   eventId: null,
   settings: null,
@@ -156,10 +157,9 @@ function allocationFor(t, e) {
 }
 
 function renderWhoami() {
-  const me = signedIn();
-  const bits = adminTeamsFor(me).map((t) => ROLE_LABEL[me.roleIn[t.id]] + ", " + t.name)
-    .concat(TEAMS.filter((t) => me.coachIn[t.id]).map((t) => "Coach, " + t.name));
-  el("whoami").innerHTML = "<b>" + esc(me.name) + "</b>" + (bits.length ? bits.map(esc).join(" &middot; ") : "Parent");
+  // just the name. A role line breaks for an adult coaching two age groups, and the
+  // event rows already say who is coaching what.
+  el("whoami").innerHTML = "<b>" + esc(signedIn().name) + "</b>";
 }
 
 function renderAll() {
@@ -1045,15 +1045,42 @@ function squadLabel(e, sq) {
 }
 
 function familyAnswer(e, personId, value) {
+  const me = signedIn();
   e.status.set(personId, value);
   if (value === "none") { e.answeredBy.delete(personId); e.answeredAt.delete(personId); }
-  else { e.answeredBy.set(personId, signedIn().id); e.answeredAt.set(personId, NOW); }
+  else { e.answeredBy.set(personId, me.id); e.answeredAt.set(personId, NOW); }
+  state.familyEditing = null;
   const who = BY_ID.get(personId);
+  const name = who.id === me.id ? "You are" : esc(who.firstName) + " is";
+  toast(name.replace("&#39;", "'") + (value === "accepted" ? " down as coming." : " marked as not coming."));
   if (isAdmin(signedIn()) && e.id === state.eventId) {
     rerun(true, who.name + " " + (value === "accepted" ? "accepted" : "declined") + " on their own invitation");
   }
   renderAll();
 }
+
+/* A brief confirmation that goes away on its own. role="status" so it is announced
+   once, politely, rather than sitting on the page for the whole visit. */
+function toast(message) {
+  let host = el("toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "toast-host";
+    document.body.appendChild(host);
+  }
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.setAttribute("role", "status");
+  t.textContent = message;
+  host.appendChild(t);
+  setTimeout(() => t.classList.add("out"), 2600);
+  setTimeout(() => t.remove(), 3300);
+}
+
+/* "base" sensitivity puts Áine with the As rather than after Z */
+const NAME_ORDER = new Intl.Collator("en", { sensitivity: "base" });
+const byFirstName = (a, b) =>
+  NAME_ORDER.compare(a.firstName, b.firstName) || NAME_ORDER.compare(a.lastName, b.lastName);
 
 const STATUS_MARK = { accepted: "&check;", declined: "&minus;", none: "&#9675;" };
 const statusTag = (st) => `<span class="st st-${st}"><span class="st-mark" aria-hidden="true">${STATUS_MARK[st]}</span>${STATUS_LABEL[st]}</span>`;
@@ -1084,10 +1111,9 @@ function squadPanel(entry, person) {
       You'll see ${esc(person.firstName)}'s squad and coaches here as soon as they are.</div>`;
   }
 
-  const coaches = sq.coachIds.map((id) => BY_ID.get(id)).filter(Boolean)
-    .sort((a, b) => (b.id === me.id) - (a.id === me.id) || a.name.localeCompare(b.name));
-  const players = sq.childIds.map((id) => BY_ID.get(id)).filter(Boolean)
-    .sort((a, b) => (b.id === person.id) - (a.id === person.id) || a.name.localeCompare(b.name));
+  // nobody is pulled to the top: a parent reads a squad list to find a name in it
+  const coaches = sq.coachIds.map((id) => BY_ID.get(id)).filter(Boolean).sort(byFirstName);
+  const players = sq.childIds.map((id) => BY_ID.get(id)).filter(Boolean).sort(byFirstName);
 
   const nameItem = (p, mine, hiddenLabel) =>
     `<li class="${mine ? "mine" : ""}">${esc(p.name)}${mine ? `<span class="vh"> &mdash; ${hiddenLabel}</span>` : ""}</li>`;
@@ -1124,14 +1150,21 @@ function answerBlock(entry, person, label) {
   const st = e.status.get(person.id) || "none";
   const started = hasStarted(e);
 
+  /* Tapping Change answer opens the choice; it writes nothing. A parent who taps it
+     and walks away has changed nothing, and their child is still down as they were. */
+  const editKey = e.id + ":" + person.id;
+  const choosing = st === "none" || state.familyEditing === editKey;
+
   let control = "";
   if (!started) {
-    control = st === "none"
-      ? `<span class="answer-row">
-          <button class="btn choice" data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
-          <button class="btn choice" data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`
+    control = choosing
+      ? `<span class="answer-row" role="group" aria-label="Answer for ${esc(label)}">
+          <button class="btn choice ${st === "accepted" ? "is-selected" : ""}" aria-pressed="${st === "accepted"}"
+            data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
+          <button class="btn choice ${st === "declined" ? "is-selected" : ""}" aria-pressed="${st === "declined"}"
+            data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`
       : `<span class="answer-row">
-          <button class="btn" data-change="${person.id}" data-ev="${e.id}">Change answer</button></span>`;
+          <button class="btn" data-change="${editKey}">Change answer</button></span>`;
   }
 
   return `<div class="kid-block">
@@ -1192,6 +1225,7 @@ function renderFamily() {
         ? people.map((p) => labelledStatus(p.id === me.id ? "You" : p.firstName,
             e.status.get(p.id) || "none")).join("")
         : statusTag(e.status.get(people[0].id) || "none");
+    const tagClass = e.cancelled ? "one" : people.length > 1 ? "stacked" : "one";
 
     const times = (e.meetTime ? "Meet " + e.meetTime + " &middot; " : "") + e.time + "&ndash;" + e.endTime;
     const who = entry.kids.map((k) => k.firstName).join(" and ");
@@ -1208,7 +1242,7 @@ function renderFamily() {
           <span class="fev-title">${esc(eventTitle(e))}</span>
           <span class="fev-sub"><b>${esc(who)}</b> &middot; ${e.dayName} &middot; ${times}</span>
         </span>
-        <span class="fev-tags">${chips}</span>
+        <span class="fev-tags ${tagClass}">${chips}</span>
       </button>
       ${open ? `<div class="fev-body">
         ${e.cancelled
@@ -1224,8 +1258,8 @@ function renderFamily() {
 
   const earlierBlock = earlier.length
     ? `<button class="earlier-row" id="earlier-toggle" aria-expanded="${state.familyShowEarlier}">
-         <span class="caret" aria-hidden="true">${state.familyShowEarlier ? "&#9662;" : "&#9656;"}</span>
-         ${plural(earlier.length, "earlier event", "earlier events")}
+         <span class="caret ${state.familyShowEarlier ? "up" : ""}" aria-hidden="true">&#9662;</span>
+         ${state.familyShowEarlier ? "Hide" : "Show"} ${plural(earlier.length, "earlier event", "earlier events")}
        </button>
        ${state.familyShowEarlier ? renderMonths(earlier) : ""}`
     : "";
@@ -1249,15 +1283,16 @@ function renderFamily() {
       </div>
     </div>`).join("");
 
-  /* only events that can still be answered count as owed */
+  /* Only what is coming up this week is worth nagging about. Nothing locks and nothing
+     is hidden: an event further out can still be answered, from its own row. */
+  const weekEnd = new Date(NOW.getTime() + 7 * 86400000);
   const owed = [];
-  answerable.forEach((entry) => {
+  answerable.filter((entry) => eventStart(entry.event) <= weekEnd).forEach((entry) => {
     entry.kids.forEach((k) => { if ((entry.event.status.get(k.id) || "none") === "none") owed.push(entry); });
     if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") owed.push(entry);
   });
   const outstanding = owed.length;
   const firstOwed = owed[0];
-  const coachesSomewhere = TEAMS.some((t) => me.coachIn[t.id]);
 
   const chipRow = kids.length > 1
     ? `<div class="toolbar childchips" role="group" aria-label="Filter by child">
@@ -1274,13 +1309,9 @@ function renderFamily() {
     </div>
     ${outstanding
       ? `<button class="alert warn alert-action" id="goto-owed">
-          <b>${plural(outstanding, "answer", "answers")} still to give.</b> Anything unanswered is shown below with
-          Yes and Can't make it against it. <span class="alert-go">Take me there</span></button>`
-      : `<div class="alert ok" style="margin-bottom:16px">
-          <b>Everything answered.</b> You can change any answer below, at any time.</div>`}
-    ${coachesSomewhere ? `<div class="note" style="margin-bottom:16px">You are asked about coaching separately
-      from your children, because you can be unavailable on a night they still attend. Both answers appear on
-      each session below.</div>` : ""}
+          <b>${plural(outstanding, "answer", "answers")} still to give in the next 7 days.</b>
+          <span class="alert-go">Take me there</span></button>`
+      : ""}
     <div class="family">
       <div>${chipRow}${body}</div>
       <div>
@@ -1376,12 +1407,9 @@ function wireFamily(firstOwed) {
     b.onclick = () => familyAnswer(evById(b.dataset.ev), Number(b.dataset.yes), "accepted"));
   root.querySelectorAll("[data-no]").forEach((b) =>
     b.onclick = () => familyAnswer(evById(b.dataset.ev), Number(b.dataset.no), "declined"));
+  // opens the choice and writes nothing
   root.querySelectorAll("[data-change]").forEach((b) =>
-    b.onclick = () => {
-      const e = evById(b.dataset.ev), id = Number(b.dataset.change);
-      e.status.set(id, "none"); e.answeredBy.delete(id); e.answeredAt.delete(id);
-      renderAll();
-    });
+    b.onclick = () => { state.familyEditing = b.dataset.change; renderFamily(); });
 
   root.querySelectorAll("[data-fedit]").forEach((b) =>
     b.onclick = () => {
