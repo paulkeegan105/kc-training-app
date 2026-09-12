@@ -1227,7 +1227,9 @@ function renderFamily() {
         : statusTag(e.status.get(people[0].id) || "none");
     const tagClass = e.cancelled ? "one" : people.length > 1 ? "stacked" : "one";
 
-    const times = (e.meetTime ? "Meet " + e.meetTime + " &middot; " : "") + e.time + "&ndash;" + e.endTime;
+    // a cancelled event keeps the date, day, time range and opposition, and nothing else
+    const times = (e.meetTime && !e.cancelled ? "Meet " + e.meetTime + " &middot; " : "")
+      + e.time + "&ndash;" + e.endTime;
     const who = entry.kids.map((k) => k.firstName).join(" and ");
 
     const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
@@ -1258,7 +1260,9 @@ function renderFamily() {
 
   const earlierBlock = earlier.length
     ? `<button class="earlier-row" id="earlier-toggle" aria-expanded="${state.familyShowEarlier}">
-         <span class="caret ${state.familyShowEarlier ? "up" : ""}" aria-hidden="true">&#9662;</span>
+         <svg class="caret ${state.familyShowEarlier ? "up" : ""}" viewBox="0 0 12 8"
+           aria-hidden="true" focusable="false"><path d="M1 1.75 L6 6.25 L11 1.75" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
          ${state.familyShowEarlier ? "Hide" : "Show"} ${plural(earlier.length, "earlier event", "earlier events")}
        </button>
        ${state.familyShowEarlier ? renderMonths(earlier) : ""}`
