@@ -84,7 +84,7 @@ Each team carries the numbers the allocation runs on: maximum squads, maximum, t
 
 An admin sets them per team, because turnout and age change what works. An admin can also override them on a single event, which applies to that event only and leaves the team's settings alone.
 
-A team also carries a default event duration of 1 hour 15, a response deadline of 24 hours before the start, and a switch for the automatic reminder. The duration and the deadline are overridable on a single event in the same way.
+A team also carries a default event duration of 1 hour 15, a response deadline of 24 hours before the start, and the advance reminder: a switch, and how many hours before the deadline it goes out. The duration and the deadline are overridable on a single event in the same way.
 
 ## Registered and unregistered members
 
@@ -176,13 +176,19 @@ A parent sees the deadline on each event, and a count at the top of their page o
 
 An admin sees the deadline state on each calendar row: counting down before it, and saying responses have closed after it.
 
-The automatic reminder is a team setting, on or off. It goes only to people who haven't responded, and it is timed off the deadline rather than off the event, so it arrives a day before answers are due. For a Wednesday 18:30 session with a 24-hour deadline, answers are due Tuesday 18:30 and the reminder goes out Monday 18:30.
+### The advance reminder
+
+The advance reminder is a team setting, on or off. It goes only to people who haven't responded.
+
+It is timed off the deadline rather than off the event, and goes out a configurable number of hours before it, defaulting to 24. Both numbers are settings, so a team can ask for answers early and still nudge late, or the other way round.
+
+For a Wednesday 18:30 session with a 24-hour deadline and a 24-hour reminder, answers are due Tuesday 18:30 and the reminder goes out Monday 18:30. Widen the deadline to 72 hours and answers are due Sunday 18:30, with the reminder on Saturday 18:30 — which is why it is no longer called the 24-hour reminder: the 24 in it was never the thing that mattered.
 
 ## Notifications
 
 Email only. There is no SMS anywhere in the app, and push notifications are not in the first release.
 
-Notifications go out for a new event invitation, a chaser, a reminder, a cancellation, and when the squads for an event are published. When squads are re-published, only those whose squad has changed are notified.
+Notifications go out for a new event invitation, a chaser, the advance reminder, a cancellation, and when the squads for an event are published. When squads are re-published, only those whose squad has changed are notified.
 
 There are no per-adult notification preferences. With a single channel there is nothing to choose between.
 

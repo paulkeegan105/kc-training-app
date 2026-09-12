@@ -240,7 +240,7 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 
 **Decided.** The automatic 24-hour reminder is a team setting, on or off, and goes only to people who haven't responded. Manual chasers are per person with no limit.
 
-**Updated.** The reminder is now timed off the response deadline rather than off the event, so it arrives a day before answers are due rather than a day before the session. Everything else recorded above stands: a team setting, on or off, non-responders only, and unlimited manual chasers. The deadline itself is at item 53.
+**Updated.** Renamed to the **advance reminder** throughout both specs. The question above and the answer under it keep the old name, because that is what was asked and what was answered at the time. It is now timed off the response deadline rather than off the event, and goes out a configurable number of hours before it, defaulting to 24 — so the 24 is a default rather than part of its name. On an event with a 72-hour deadline the reminder lands four days before the session, which is what made the old name wrong. Everything else recorded above stands: a team setting, on or off, non-responders only, and unlimited manual chasers. The deadline itself is at item 53.
 
 **37. Whether an admin override of someone's status is visible to that person,** and whether an overridden "accepted" feeds the allocation identically to a real one.
 
