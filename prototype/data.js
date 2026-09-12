@@ -368,3 +368,45 @@ function nextEventFor(team) {
   return team.events.find((e) => !e.past && e.published && !e.cancelled)
     || team.events.find((e) => !e.past) || team.events[team.events.length - 1];
 }
+
+/* ---- seeded states ------------------------------------------------------
+   Three parent-facing states the generator never produces on its own, seeded
+   onto one persona so a tester meets them in the app rather than only on the
+   banners page. Consumes no randomness, so persona selection is unchanged. */
+
+const SEEDED = (function () {
+  const parent = BY_ID.get(PERSONAS[2].id);          // the non-coaching parent
+  const kids = parent.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
+  const u9Kid = kids.find((k) => k.teamId === "u9");
+  const u11Kid = kids.find((k) => k.teamId === "u11");
+
+  /* 1. a school this parent typed into "other", waiting on a Club Admin.
+        school stays empty, so the allocation keeps counting them a singleton. */
+  u9Kid.school = "";
+  u9Kid.schoolPending = "St Malachy's NS";
+
+  /* 2. no school at all — what every child looks like before a parent fills
+        anything in, which is the state the club sees on day one. */
+  u11Kid.school = "";
+  u11Kid.schoolPending = null;
+
+  const unanswer = (e, person) => {
+    if (!e) return null;
+    e.status.set(person.id, "none");
+    e.answeredBy.delete(person.id);
+    e.answeredAt.delete(person.id);
+    return e;
+  };
+
+  /* 3. past its response deadline, not yet started, never answered. That state
+        lives in the window between the deadline passing and the throw-in. */
+  const closedUnanswered = unanswer(TEAM_BY_ID.get("u11").events.find((e) =>
+    e.published && !e.cancelled && eventStart(e) > NOW && deadlineState(e).closed), u11Kid);
+
+  /* and a finished session nobody answered, so the "answers still to give"
+     count can be seen leaving it out */
+  const pastUnanswered = unanswer([...TEAM_BY_ID.get("u9").events].reverse().find((e) =>
+    e.published && !e.cancelled && eventStart(e) <= NOW), u9Kid);
+
+  return { parent, u9Kid, u11Kid, closedUnanswered, pastUnanswered };
+})();
