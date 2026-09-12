@@ -38,6 +38,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Decided.** Blackout dates and date-range unavailability are removed from the spec entirely. Members respond per event, so every decline comes from someone who can be asked for a reason.
 
+**Updated.** The trailing clause here no longer holds. Declining now collects no reason at all (item 45), so "every decline comes from someone who can be asked for a reason" describes a thing the app stopped doing. What the decision was actually about stands: blackout dates and date-range unavailability are gone, and members respond per event.
+
 **8. Delete may be a dead feature.** Deleting is allowed only before notifications have gone out. If the invitation notification fires automatically when an event is created, there is never a window to delete. Is there an explicit publish/invite step separate from creation?
 
 **Decided.** Events start as a draft: invisible to members, freely editable and deletable. Publishing is a separate step that sends the invitations, and once published, cancelling is the only way to withdraw an event.
@@ -66,6 +68,11 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **42. Squad and station were the same word.** The specs defined the thing the allocation produces as "one station at a training session", while the prototype labelled them Station 1, Station 2 and so on. Two different things were sharing one name: the set of children who stay together, and the spot on the pitch they walk to.
 
 **Decided.** Renamed throughout both specs. A **squad** is what the allocation produces: a set of children and coaches who stay together for the session. A **station** is a fixed spot on the pitch with a drill set up at it. Squads rotate around the stations on a whistle until every station has been visited, and coaches travel with their squad rather than staying at a station. The app allocates squads and shows the pitch layout; what happens at each station is the coaches' business.
+
+
+**55. "Team" meant two different things.** It meant the age group — Under 9, Under 11, a Team Admin — and it also meant a match squad, which the prototype labelled "Team 4". The allocation spec made it worse by defining a squad as "a team" at a match, so the word covered both the group of ninety children and one of the five sides drawn from them.
+
+**Decided.** **Squad** is the word for what the allocation produces, everywhere. **Team** means the age group, everywhere in admin surfaces and throughout these specs. The single exception is a parent's event card for a match, where their child's squad is shown as "Team 4", because that is what the club calls it on the day. Nothing else uses the word. The two sentences in `allocation-rules.md` that defined a match squad as a team have been reworded, since the rule forbids that use in the specs themselves.
 
 ## Gaps that block a build
 
@@ -108,6 +115,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **20. School needs to be a controlled list.** If it's free text, "St Mary's" and "St. Marys" are two schools and the singleton logic silently misfires. Is there a club-level list of schools?
 
 **Decided.** Schools are a controlled list maintained by an admin at club level. Parents pick from a dropdown, which includes an "other" option.
+
+**Updated.** What happens to a school typed into "other" is now settled, and it is not what you might assume. The typed school is **not** added to the club's list. It is recorded against that child as unconfirmed and queued for a Club Admin, who either maps it to a school already on the list or adds it. Until they do the child has no confirmed school, so the allocation counts them as a singleton — and two children who typed the same school by hand are not put together on the strength of it, because the spelling has not been checked. The field tells the parent the club will confirm it. If typing a school added it, "St Laurence's", "St Laurences" and "St. Laurence's NS" would be three schools inside a season and the affinity rules would quietly stop working.
 
 **21. Who is invited to an event?** Always the whole team, or can an admin invite a subset? Are adults invited to every event, or only those flagged as coaching?
 
@@ -170,6 +179,7 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Decided.** Publishing sends each parent an email naming their child and carrying the event type, date, start and end time, meet time and venue, with an accept button and a decline button. Both open the same phone-first page: it shows the event, asks whether that child can make it, takes an acceptance in one tap, and asks a declining parent for a reason in a single field with a line saying only the team admin sees it. Answering re-runs the allocation straight away. A parent can change their answer afterwards, as often as they need, up to the event itself.
 
+**Updated.** The decline reason is removed. Declining is one tap, the same as accepting: no field on the response screen, no "you said" line on the card, no admin-facing display of it, and none of the supporting copy about only the admin seeing it. A parent who cannot make a session owes the club an answer, not an explanation, and asking for one made the quick no harder to give than the quick yes. Everything else recorded above stands.
 
 **46. Coach-with-own-child was an unconditional hard rule.** It forced every coach into their own child's squad with no way to turn it off, which also forced the stand-down: a coach whose child was absent could not be used at all, however short the session was of adults.
 
@@ -209,6 +219,13 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **54. Moving someone between squads worked only by dragging.** Manual changes were specified as the admin moving a player or coach between squads, and the first build made that a drag. Dragging needs a mouse, a steady hand and a screen big enough to hold two squads at once, none of which is a safe assumption for a volunteer sorting squads at the side of a pitch.
 
 **Decided.** Moving someone must work without a mouse. Dragging stays as the quick way, but every name also carries a control that moves that person to a named squad, reachable by keyboard. Both paths go through the same rules, so a move made either way is pinned, keeps a coach and child pair together, and reports what it broke.
+
+
+**56. Nothing said who gave an answer, or when.** A household can hold two parents and either can answer for a child, so "accepted" on its own left the other parent unable to tell whether it was them, their partner, or an admin — and no date, so no way to tell a fresh answer from a stale one.
+
+**Decided.** Each answer carries who set it and when, shown under the status: "Declined by Dad, Wed 16 Sep". It is the answer that is live now, not a history. Previous answers, and who changed what, are not kept or shown. An admin override reads as set by an admin, with the same date.
+
+**Not decided:** whether admins need a full audit trail — every answer, every change, who made it — for a disputed no-show or a safeguarding question. That is a different feature with a different retention question attached, and it belongs with item 39 rather than here.
 
 ## Things I'd have to invent to build it
 
@@ -250,7 +267,11 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 
 **Decided.** A parent sees their child's group, the coaches for it, and the names of the other children in it.
 
+**Raised and parked.** Whether a parent should see every squad for an event, rather than only their child's, came up and is deliberately left out of v1. The arguments both ways are real — a parent might want to know who else is out on the pitch, and a club might not want a full roster of children in every household — so it is a question for the club rather than one to settle here. What is decided above is unchanged, with one addition: the parent's own child now appears in the players list of their own squad rather than being left out of it.
+
 **39. Data protection.** Nothing addresses consent, retention, or subject access for children's records — including an ability rating that is explicitly hidden from the child's own parents. For a club handling young children's data this needs a decision before launch, not after.
+
+**Updated, still undecided.** This item got smaller. The free-text decline reason was the main thing it was about: an open field, written by a parent, about a child, stored indefinitely and visible to admins. That field is gone (item 45), which removes the sharpest edge. What remains is unchanged and still undecided: consent, retention, and subject access for children's records, including an ability rating hidden from the child's own parents.
 
 **40. Timeline.** Teamer closes 5 October 2026, which is under four weeks away. The scope above is considerably more than that allows, so I'd assume a cut-down first release — which of these is genuinely needed by 5 October versus later?
 

@@ -8,6 +8,17 @@ const ratingChip = (r) => `<span class="rating r${r}">${r}</span>`;
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
 const NO_SCHOOL_LABEL = "No school recorded";
 const schoolOf = (c) => c.school || NO_SCHOOL_LABEL;
+const schoolDisplay = (c) => c.school ? esc(c.school)
+  : c.schoolPending ? esc(c.schoolPending) + ' <span class="tag unreg">awaiting club confirmation</span>'
+  : `<span class="tag unreg">${NO_SCHOOL_LABEL}</span>`;
+
+/* A school typed into "Other" is recorded against the child but never added to the club
+   list. It waits for a Club Admin to map it or add it; until then the child has no
+   confirmed school, so allocation treats them as a singleton. */
+function setSchool(child, value, fromOther) {
+  if (fromOther) { child.school = ""; child.schoolPending = value; }
+  else { child.school = value; child.schoolPending = null; }
+}
 
 /* wherever a rating is shown, say which end is which */
 const ratingLegend = (style = "") => `<div class="legend" ${style ? `style="${style}"` : ""}>
@@ -21,8 +32,7 @@ const ratingLegend = (style = "") => `<div class="legend" ${style ? `style="${st
 const state = {
   signedInId: null,
   editScope: "admin",
-  familyDeclining: null,
-  familyDraft: "",
+  familyOpenId: null,
   teamId: "u9",
   eventId: null,
   settings: null,
@@ -33,7 +43,6 @@ const state = {
   lastMove: null,
   inviteChildId: null,
   inviteStep: "ask",
-  inviteDraft: "",
   rerunNotice: null,
   editingId: null,
   editError: ""
@@ -113,7 +122,7 @@ function rerun(keepPins = true, reason = null) {
     children: acceptedChildren(), coaches: acceptedCoaches(), byId: BY_ID,
     settings: state.settings, mode: state.mode, pins: state.pins,
     forcedCount: state.groupCount || null,
-    groupLabel: e.type === "Game" ? "Team" : "Squad"
+    groupLabel: "Squad"
   });
   if (reason) state.rerunNotice = describeRerun(reason, before, placementSnapshot());
 }
@@ -122,8 +131,8 @@ function rerun(keepPins = true, reason = null) {
    so a later re-run doesn't quietly change a squad someone was already told about. */
 function publishSquads(e, result) {
   if (!result || !result.groups) return;
-  e.squads = result.groups.map((g) => ({
-    name: g.name,
+  e.squads = result.groups.map((g, i) => ({
+    name: g.name, index: i,
     childIds: g.children.map((c) => c.id),
     coachIds: g.coaches.map((c) => c.id)
   }));
@@ -141,7 +150,7 @@ function allocationFor(t, e) {
   const kids = t.people.filter((p) => p.type === "child" && e.status.get(p.id) === "accepted");
   const coaches = t.people.filter((p) => p.type === "adult" && p.coachIn[t.id] && e.status.get(p.id) === "accepted");
   return allocate({ children: kids, coaches, byId: BY_ID, settings: t.settings, mode: t.mode,
-    pins: new Map(), groupLabel: e.type === "Game" ? "Team" : "Squad" });
+    pins: new Map(), groupLabel: "Squad" });
 }
 
 function renderWhoami() {
@@ -292,7 +301,8 @@ function renderCalendar() {
     sel.onchange = () => {
       const id = Number(sel.dataset.person);
       ev().status.set(id, sel.value);
-      if (sel.value !== "declined") ev().reason.delete(id);
+      if (sel.value === "none") { ev().answeredBy.delete(id); ev().answeredAt.delete(id); }
+      else { ev().answeredBy.set(id, "admin"); ev().answeredAt.set(id, NOW); }
       const who = BY_ID.get(id);
       rerun(true, who.name + " was set to " + STATUS_LABEL[sel.value].toLowerCase() + " by an admin");
       renderAll();
@@ -304,6 +314,14 @@ function publishEvent(e) {
   const t = TEAM_BY_ID.get(e.teamId);
   t.people.filter((p) => p.type === "child").forEach((c) => e.status.set(c.id, "none"));
   t.people.filter((p) => p.type === "adult" && p.coachIn[t.id]).forEach((a) => e.status.set(a.id, "none"));
+}
+
+function answeredSummary(e, personId) {
+  const st = e.status.get(personId) || "none";
+  if (st === "none") return "";
+  const by = e.answeredBy.get(personId), when = e.answeredAt.get(personId);
+  const whoBy = by === "admin" ? "an admin" : (BY_ID.get(by) ? BY_ID.get(by).firstName : "an admin");
+  return esc("by " + whoBy + (when ? ", " + fmtDay(when) : ""));
 }
 
 function responseList(e) {
@@ -329,14 +347,13 @@ function responseList(e) {
       || a.lastName.localeCompare(b.lastName))
     .map((p) => {
       const st = e.status.get(p.id) || "none";
-      const why = e.reason.get(p.id);
       const sub = p.type === "child"
         ? "Child &middot; " + esc(parentsOf(p).map((a) => a.name).join(", "))
         : "Coach &middot; parent of " + esc(p.childIds.map((id) => BY_ID.get(id)).filter(Boolean).map((c) => c.name).join(", "));
       return `<tr>
         <td><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></td>
-        <td>${pill(st)}</td>
-        <td class="sub">${st === "declined" && why ? esc(why) + ' <span class="lock">Admin only</span>' : ""}</td>
+        <td>${statusTag(st)}</td>
+        <td class="sub">${answeredSummary(e, p.id)}</td>
         <td style="text-align:right"><select class="status-pick" data-person="${p.id}">
           ${["accepted", "declined", "none"].map((k) =>
             `<option value="${k}" ${st === k ? "selected" : ""}>${STATUS_LABEL[k]}</option>`).join("")}
@@ -355,7 +372,7 @@ function responseList(e) {
       <input class="search" id="cal-search" placeholder="Search a name" value="${esc(calSearch)}">
     </div>
     <div class="card"><table>
-      <thead><tr><th>Name</th><th>Status</th><th>Reason given</th><th style="text-align:right">Change</th></tr></thead>
+      <thead><tr><th>Name</th><th>Status</th><th>Answered</th><th style="text-align:right">Change</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="4" class="sub" style="padding:20px">Nobody matches that.</td></tr>`}</tbody>
     </table></div>
     <div class="notice">An admin can override anyone's response. The override is visible to that person,
@@ -369,13 +386,15 @@ let calTab = "children", calStatus = "all", calSearch = "";
 
 function renderMembers() {
   const t = team();
-  const noSchoolCount = t.people.filter((p) => p.type === "child" && !p.school).length;
+  const noSchoolCount = t.people.filter((p) => p.type === "child" && !p.school && !p.schoolPending).length;
+  const pendingCount = t.people.filter((p) => p.type === "child" && p.schoolPending).length;
   let rows = t.people.slice();
   if (memberFilter === "children") rows = rows.filter((p) => p.type === "child");
   if (memberFilter === "adults") rows = rows.filter((p) => p.type === "adult");
   if (memberFilter === "coaches") rows = rows.filter((p) => p.coachIn && p.coachIn[t.id]);
   if (memberFilter === "unregistered") rows = rows.filter((p) => p.type === "adult" && !p.registered);
-  if (memberFilter === "noschool") rows = rows.filter((p) => p.type === "child" && !p.school);
+  if (memberFilter === "noschool") rows = rows.filter((p) => p.type === "child" && !p.school && !p.schoolPending);
+  if (memberFilter === "pending") rows = rows.filter((p) => p.type === "child" && !!p.schoolPending);
   if (memberSearch) {
     const q = memberSearch.toLowerCase();
     rows = rows.filter((p) => p.name.toLowerCase().includes(q) || (p.school || "").toLowerCase().includes(q));
@@ -387,7 +406,7 @@ function renderMembers() {
       const ps = parentsOf(p).map((a) => a.name + (a.coachIn[t.id] ? " (coach)" : "")).join(", ");
       return `<tr>
         <td><div class="name">${esc(p.name)}</div><div class="sub">Child &middot; ${esc(ps)}</div></td>
-        <td>${p.school ? esc(p.school) : `<span class="tag unreg">${NO_SCHOOL_LABEL}</span>`}</td>
+        <td>${schoolDisplay(p)}</td>
         <td>${ratingChip(p.rating)}</td>
         <td class="rolecell">Player</td>
         <td></td>
@@ -425,7 +444,8 @@ function renderMembers() {
     </div>
     <div class="toolbar">
       ${[["all", "All"], ["children", "Children"], ["adults", "Adults"], ["coaches", "Coaches"],
-         ["unregistered", "Unregistered"], ["noschool", "No school (" + noSchoolCount + ")"]]
+         ["unregistered", "Unregistered"], ["noschool", "No school (" + noSchoolCount + ")"],
+         ["pending", "School to confirm (" + pendingCount + ")"]]
         .map(([k, l]) => `<button class="chip" data-filter="${k}" aria-pressed="${memberFilter === k}">${l}</button>`).join("")}
       <div class="spacer"></div>
       <input class="search" id="member-search" placeholder="Search name or school" value="${esc(memberSearch)}">
@@ -478,7 +498,7 @@ function editModal() {
       <button class="btn primary" id="f-save">Save changes</button></div>`;
 
   if (p.type === "child") {
-    const known = t.schools.includes(p.school);
+    const known = !!p.school && t.schools.includes(p.school);
     return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit member">
       <h3>Edit ${esc(p.name)}</h3>
       <div class="msub">Child in ${t.name}</div>
@@ -491,8 +511,9 @@ function editModal() {
           ${t.schools.map((s) => `<option value="${esc(s)}" ${s === p.school ? "selected" : ""}>${esc(s)}</option>`).join("")}
           <option value="__other" ${known ? "" : "selected"}>Other&hellip;</option>
         </select>
-        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.school)}" ${known ? "hidden" : ""}>
-        <div class="hint">The club list is kept by a Club Admin. A school is never shown to another child's parent.</div>
+        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.schoolPending || p.school || "")}" ${known ? "hidden" : ""}>
+        <div class="hint">A school typed in here is not added to the club list. It is held against this child and
+          queued for a Club Admin to map or add. Until they do, the child counts as a singleton for allocation.</div>
       </div>
       <div class="field"><label for="f-rating">Ability rating</label>
         <select id="f-rating">${[1, 2, 3, 4, 5].map((n) =>
@@ -549,8 +570,9 @@ function wireEditModal() {
       const school = sel === "__other" ? el("f-school-other").value.trim() : sel;
       if (!school) { state.editError = "Give the school a name, or pick one from the list."; return renderMembers(); }
       const rating = Number(el("f-rating").value);
-      const schoolChanged = school !== p.school, ratingChanged = rating !== p.rating;
-      p.school = school; p.rating = rating;
+      const schoolChanged = school !== (p.school || p.schoolPending), ratingChanged = rating !== p.rating;
+      setSchool(p, school, sel === "__other");
+      p.rating = rating;
       if (ratingChanged || schoolChanged) {
         reason = p.name + "'s " + (ratingChanged && schoolChanged ? "rating and school were"
           : ratingChanged ? "rating was" : "school was") + " changed by an admin";
@@ -586,13 +608,12 @@ function inviteChild() {
   return mine || waiting || kids[0];
 }
 
-function answer(child, value, reason) {
+function answer(child, value) {
   const e = ev();
   e.status.set(child.id, value);
-  if (value === "declined" && reason) e.reason.set(child.id, reason);
-  if (value !== "declined") e.reason.delete(child.id);
+  e.answeredBy.set(child.id, parentsOf(child)[0] ? parentsOf(child)[0].id : "admin");
+  e.answeredAt.set(child.id, NOW);
   state.inviteStep = "done";
-  state.inviteDraft = "";
   rerun(true, child.name + " " + (value === "accepted" ? "accepted" : "declined") + " on their own invitation");
   renderAll();
 }
@@ -612,7 +633,7 @@ function renderInvite() {
   const child = inviteChild();
   const parent = parentsOf(child)[0];
   const st = e.status.get(child.id) || "none";
-  const step = st !== "none" && state.inviteStep !== "reason" ? "done" : state.inviteStep;
+  const step = st !== "none" ? "done" : "ask";
   const subject = t.name + " " + (e.type === "Game" ? "match" : e.type.toLowerCase()) + " — " + e.dayName + " " + e.shortDate;
 
   const facts = `
@@ -624,19 +645,7 @@ function renderInvite() {
     </div>`;
 
   let panel;
-  if (step === "reason") {
-    panel = `
-      <div class="pcard">
-        <div class="ev">${esc(eventTitle(e))} &middot; ${e.dayName} ${e.shortDate}</div>
-        <div class="ask">Thanks &mdash; what's the reason?</div>
-        <textarea class="reasonbox" id="reason-box" placeholder="A quick line is enough">${esc(state.inviteDraft)}</textarea>
-        <div class="note" style="margin:10px 0">Only the team admin sees this. It is never shown to other parents.</div>
-        <div class="answer-btns">
-          <button class="btn primary" id="send-decline">Send</button>
-          <button class="btn" id="back-ask">Back</button>
-        </div>
-      </div>`;
-  } else if (step === "done") {
+  if (step === "done") {
     const yes = st === "accepted";
     panel = `
       <div class="pcard">
@@ -646,8 +655,6 @@ function renderInvite() {
           <div class="sub" style="margin-top:5px">${esc(eventTitle(e))} &middot; ${e.dayName} ${e.shortDate}, ${e.time}</div>
         </div>
       </div>
-      ${!yes && e.reason.get(child.id) ? `<div class="pcard"><h4>Reason you gave</h4>
-        <div style="font-size:13.5px">${esc(e.reason.get(child.id))}</div></div>` : ""}
       <div class="pcard">
         <h4>Changed your mind?</h4>
         <div class="answer-btns"><button class="btn" id="change-answer">Change your answer</button></div>
@@ -722,7 +729,7 @@ function renderInvite() {
           <h3 style="font-size:15px;margin-bottom:10px">What this screen does</h3>
           <div class="note" style="margin-bottom:9px">Answers are <b>per child</b>, not per account. Either parent on
             the account can answer, and either can change it afterwards.</div>
-          <div class="note" style="margin-bottom:9px">A decline asks for a reason. Only the admin sees it.</div>
+          <div class="note" style="margin-bottom:9px">Declining is one tap, the same as accepting. No reason is asked for.</div>
           <div class="note" style="margin-bottom:9px">A coaching parent answers for themselves separately, because
             they can be unavailable on a night their child still attends.</div>
           <div class="note">Answering here re-runs the allocation straight away &mdash; check the Groups tab.</div>
@@ -733,21 +740,18 @@ function renderInvite() {
   const pickC = el("invite-child");
   pickC.onchange = () => {
     state.inviteChildId = Number(pickC.value);
-    state.inviteStep = "ask"; state.inviteDraft = "";
+    state.inviteStep = "ask";
     renderInvite();
   };
   const yes = () => answer(child, "accepted");
-  const no = () => { state.inviteStep = "reason"; renderInvite(); };
+  const no = () => answer(child, "declined");
   ["say-yes", "mail-yes"].forEach((id) => { if (el(id)) el(id).onclick = yes; });
   ["say-no", "mail-no"].forEach((id) => { if (el(id)) el(id).onclick = no; });
-  if (el("send-decline")) el("send-decline").onclick = () => answer(child, "declined", el("reason-box").value.trim());
-  if (el("back-ask")) el("back-ask").onclick = () => { state.inviteStep = "ask"; renderInvite(); };
   if (el("change-answer")) el("change-answer").onclick = () => {
-    ev().status.set(child.id, "none"); ev().reason.delete(child.id);
+    ev().status.set(child.id, "none"); ev().answeredBy.delete(child.id); ev().answeredAt.delete(child.id);
     state.inviteStep = "ask";
     rerun(true, child.name + "'s answer was cleared"); renderAll();
   };
-  if (el("reason-box")) el("reason-box").oninput = (e2) => { state.inviteDraft = e2.target.value; };
 }
 
 /* ---------------- groups ---------------- */
@@ -879,7 +883,7 @@ function renderGroups() {
     </div>
     <div class="checks">${checks}</div>
     <div class="groups-head">
-      <h3>${r.groups.length} ${e.type === "Game" ? (r.groups.length === 1 ? "team" : "teams") : (r.groups.length === 1 ? "squad" : "squads")}</h3>
+      <h3>${plural(r.groups.length, "squad", "squads")}</h3>
       <div class="spacer"></div>
       <button class="btn" id="btn-undo" ${state.pins.size ? "" : "disabled"}>Undo manual moves${state.pins.size ? " (" + state.pins.size + ")" : ""}</button>
     </div>
@@ -1023,7 +1027,7 @@ function familyEvents(me) {
     const t = TEAM_BY_ID.get(k.teamId);
     if (!t) return;
     t.events.forEach((e) => {
-      if (!e.published || e.past) return;
+      if (!e.published) return;                 // drafts stay invisible to a parent
       if (!map.has(e.id)) map.set(e.id, { event: e, team: t, kids: [] });
       map.get(e.id).kids.push(k);
     });
@@ -1032,12 +1036,16 @@ function familyEvents(me) {
     a.event.date.localeCompare(b.event.date) || a.event.time.localeCompare(b.event.time));
 }
 
-function familyAnswer(e, personId, value, reason) {
+/* the squad a parent is shown. A match squad is called a team, because that is what
+   the club calls it on the day; everywhere else it is a squad. */
+function squadLabel(e, sq) {
+  return e.type === "Game" ? "Team " + (sq.index + 1) : sq.name;
+}
+
+function familyAnswer(e, personId, value) {
   e.status.set(personId, value);
-  if (value === "declined" && reason) e.reason.set(personId, reason);
-  else e.reason.delete(personId);
-  state.familyDeclining = null;
-  state.familyDraft = "";
+  if (value === "none") { e.answeredBy.delete(personId); e.answeredAt.delete(personId); }
+  else { e.answeredBy.set(personId, signedIn().id); e.answeredAt.set(personId, NOW); }
   const who = BY_ID.get(personId);
   if (isAdmin(signedIn()) && e.id === state.eventId) {
     rerun(true, who.name + " " + (value === "accepted" ? "accepted" : "declined") + " on their own invitation");
@@ -1045,63 +1053,73 @@ function familyAnswer(e, personId, value, reason) {
   renderAll();
 }
 
-function answerBlock(entry, person, label, note) {
+const STATUS_MARK = { accepted: "&check;", declined: "&minus;", none: "&#9675;" };
+const statusTag = (st) => `<span class="st st-${st}"><span class="st-mark" aria-hidden="true">${STATUS_MARK[st]}</span>${STATUS_LABEL[st]}</span>`;
+
+/* who set the answer that is live now, and when */
+function answeredLine(e, personId) {
+  const st = e.status.get(personId) || "none";
+  if (st === "none") return "";
+  const when = e.answeredAt.get(personId);
+  const by = e.answeredBy.get(personId);
+  const word = st === "accepted" ? "Accepted" : "Declined";
+  const whoBy = by === "admin" ? "an admin"
+    : (BY_ID.get(by) ? (by === signedIn().id ? "you" : BY_ID.get(by).firstName) : "an admin");
+  return `<div class="ans-by">${word} by ${esc(whoBy)}${when ? ", " + fmtDay(when) : ""}</div>`;
+}
+
+function squadPanel(entry, person) {
+  const e = entry.event, me = signedIn();
+  const sq = squadForChild(e, person.id);
+  if (!sq) {
+    return `<div class="pending">Squads for this session haven't been published yet.
+      You'll see ${esc(person.firstName)}'s squad and coaches here as soon as they are.</div>`;
+  }
+
+  const coaches = sq.coachIds.map((id) => BY_ID.get(id)).filter(Boolean)
+    .sort((a, b) => (b.id === me.id) - (a.id === me.id) || a.name.localeCompare(b.name));
+  const players = sq.childIds.map((id) => BY_ID.get(id)).filter(Boolean)
+    .sort((a, b) => (b.id === person.id) - (a.id === person.id) || a.name.localeCompare(b.name));
+
+  const nameItem = (p, mine, hiddenLabel) =>
+    `<li class="${mine ? "mine" : ""}">${esc(p.name)}${mine ? `<span class="vh"> &mdash; ${hiddenLabel}</span>` : ""}</li>`;
+
+  return `<div class="squad-box">
+      <div class="sq">${esc(squadLabel(e, sq))}</div>
+      <div class="sl">
+        <h5>Coaches (${coaches.length})</h5>
+        <ul class="cols">${coaches.length
+          ? coaches.map((c) => nameItem(c, c.id === me.id, "you")).join("")
+          : "<li>Not yet assigned</li>"}</ul>
+      </div>
+      <hr class="hairline">
+      <div class="sl">
+        <h5>Players (${players.length})</h5>
+        <ul class="cols">${players.map((c) => nameItem(c, c.id === person.id, "your child")).join("")}</ul>
+      </div>
+    </div>`;
+}
+
+function answerBlock(entry, person, label) {
   const e = entry.event;
   const st = e.status.get(person.id) || "none";
-  const declining = state.familyDeclining === person.id;
-  const me = signedIn();
 
-  let control;
-  if (declining) {
-    control = `<div style="width:100%">
-        <textarea class="reasonbox" id="fr-${person.id}" placeholder="A quick line is enough">${esc(state.familyDraft)}</textarea>
-        <div class="sub" style="margin:7px 0 9px">Only the team admin sees this.</div>
-        <div class="answer-row">
-          <button class="btn primary" data-send="${person.id}" data-ev="${e.id}">Send</button>
-          <button class="btn" data-cancel-decline="1">Back</button>
-        </div></div>`;
-  } else if (st === "none") {
-    control = `<div class="answer-row">
+  const control = st === "none"
+    ? `<span class="answer-row">
         <button class="btn choice" data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
-        <button class="btn choice" data-no="${person.id}">Can't make it</button></div>`;
-  } else {
-    control = `<div class="answer-row">
-        <button class="btn" data-change="${person.id}" data-ev="${e.id}">Change answer</button></div>`;
-  }
-
-  const sq = st === "accepted" ? squadForChild(e, person.id) : null;
-  let squadBox = "";
-  if (person.type === "child" && st === "accepted") {
-    if (sq) {
-      const coaches = sq.coachIds.map((id) => BY_ID.get(id)).filter(Boolean);
-      const others = sq.childIds.filter((id) => id !== person.id)
-        .map((id) => BY_ID.get(id)).filter(Boolean)
-        .sort((a, b) => a.name.localeCompare(b.name));
-      squadBox = `<div class="squad-box">
-          <div class="sq">${esc(sq.name)}</div>
-          <h5>Coaches</h5>
-          <div class="namelist">${coaches.length
-            ? coaches.map((c) => `<span class="${c.id === me.id ? "me" : ""}">${esc(c.name)}${c.id === me.id ? " (you)" : ""}</span>`).join("")
-            : "<span>Not yet assigned</span>"}</div>
-          <h5>Also in this squad (${others.length})</h5>
-          <div class="namelist">${others.map((c) => `<span>${esc(c.name)}</span>`).join("")}</div>
-        </div>`;
-    } else {
-      squadBox = `<div class="pending">Squads for this session haven't been published yet.
-        You'll see ${esc(person.firstName)}'s squad and coaches here as soon as they are.</div>`;
-    }
-  }
-
-  const why = st === "declined" && e.reason.get(person.id)
-    ? `<div class="pending">You said: ${esc(e.reason.get(person.id))}</div>` : "";
+        <button class="btn choice" data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`
+    : `<span class="answer-row">
+        <button class="btn" data-change="${person.id}" data-ev="${e.id}">Change answer</button></span>`;
 
   return `<div class="kid-block">
-      <div class="kid-head">
-        <span class="who">${esc(label)}</span>
-        ${pill(st)}
+      <div class="ans-row">
+        <span class="ans-name">${esc(label)}</span>
+        ${statusTag(st)}
+        <span class="spacer"></span>
+        ${control}
       </div>
-      ${note ? `<div class="sub" style="margin:-4px 0 10px">${note}</div>` : ""}
-      ${control}${why}${squadBox}
+      ${answeredLine(e, person.id)}
+      ${person.type === "child" && st === "accepted" ? squadPanel(entry, person) : ""}
     </div>`;
 }
 
@@ -1110,39 +1128,70 @@ function renderFamily() {
   const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
   const entries = familyEvents(me);
 
-  const cards = entries.length ? entries.map((entry) => {
-    const e = entry.event, t = entry.team;
-    const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
-      .map((k) => answerBlock(entry, k, k.name, "")).join("")
-      + (me.coachIn[t.id] ? answerBlock(entry, me, "You, coaching", "") : "");
+  const upcoming = entries.filter((x) => !x.event.past);
+  if (!state.familyOpenId || !entries.some((x) => x.event.id === state.familyOpenId)) {
+    const next = upcoming.find((x) => !x.event.cancelled) || upcoming[0] || entries[entries.length - 1];
+    state.familyOpenId = next ? next.event.id : null;
+  }
 
-    return `<div class="ev-card ${e.cancelled ? "is-cancelled" : ""}">
-        <div class="ev-top">
-          <div class="ev-when"><div class="dd">${e.date.slice(8)}</div><div class="mm">${e.shortDate.split(" ")[1]}</div></div>
-          <div class="ev-what">
-            <h3>${esc(eventTitle(e))}</h3>
-            <div class="line">${t.name} &middot; ${e.dayName} &middot; <b>${e.time}&ndash;${e.endTime}</b>, meet at ${e.meetTime}</div>
-            <div class="line">${esc(e.venue)}${e.away ? " &middot; away" : ""}</div>
-            <div class="line dl-line ${deadlineState(e).closed ? "dl-closed" : "dl-open"}">
-              ${deadlineState(e).closed
-                ? "Responses closed " + fmtWhen(deadlineFor(e)) + " &mdash; you can still change your answer"
-                : "Answers due by " + fmtWhen(deadlineFor(e)) + " &middot; " + deadlineState(e).label.replace("Answers due ", "")}
-            </div>
-          </div>
-        </div>
-        ${e.cancelled ? `<div class="kid-block"><div class="alert stop" style="margin:0">
-          <b>Cancelled.</b> ${esc(e.cancelled)}</div></div>` : blocks}
+  const months = [];
+  entries.forEach((entry) => {
+    const m = entry.event.longDate.split(" ").slice(2).join(" ");
+    if (!months.length || months[months.length - 1].label !== m) months.push({ label: m, rows: [] });
+    months[months.length - 1].rows.push(entry);
+  });
+
+  const body = months.map((m) => `
+    <div class="month">${m.label}</div>
+    ${m.rows.map((entry) => {
+      const e = entry.event, t = entry.team;
+      const open = e.id === state.familyOpenId;
+      const who = entry.kids.map((k) => k.firstName).join(" and ");
+      const people = entry.kids.concat(me.coachIn[t.id] ? [me] : []);
+
+      const chips = e.cancelled
+        ? '<span class="tag cancelled">Cancelled</span>'
+        : people.map((p) => statusTag(e.status.get(p.id) || "none")).join(" ");
+
+      const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
+        .map((k) => answerBlock(entry, k, k.name)).join("")
+        + (me.coachIn[t.id] ? answerBlock(entry, me, "You, coaching") : "");
+
+      return `<div class="fev ${open ? "is-open" : ""} ${e.past ? "is-past" : ""} ${e.cancelled ? "is-cancelled" : ""}">
+        <button class="fev-head" data-fev="${e.id}" aria-expanded="${open}">
+          <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
+          <span class="fev-main">
+            <span class="fev-title">${esc(eventTitle(e))}</span>
+            <span class="fev-sub">${esc(who)} &middot; ${t.name} &middot; ${e.dayName} &middot; ${e.time}&ndash;${e.endTime}</span>
+          </span>
+          <span class="fev-tags">${chips}</span>
+        </button>
+        ${open ? `<div class="fev-body">
+          ${e.cancelled
+            ? `<div class="alert stop" style="margin:0">
+                 <b>Cancelled.</b> ${esc(e.cancelled)}</div>`
+            : `<div class="fev-facts">
+                 <span>${esc(e.venue)}${e.away ? " &middot; away" : ""}</span>
+                 <span>Meet at ${e.meetTime}</span>
+                 <span class="dl-line ${deadlineState(e).closed ? "dl-closed" : "dl-open"}">${deadlineState(e).closed
+                   ? "Responses closed " + fmtWhen(deadlineFor(e)) + " &mdash; you can still change your answer"
+                   : "Answers due by " + fmtWhen(deadlineFor(e))}</span>
+               </div>${blocks}`}
+        </div>` : ""}
       </div>`;
-  }).join("") : `<div class="card card-pad">Nothing coming up. You'll get an email when the next session is published.</div>`;
+    }).join("")}`).join("");
 
   const childCards = kids.map((k) => `
     <div class="childrow">
-      <div class="cn">${esc(k.name)}</div>
-      <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${esc(k.school)}</div>
-      <button class="btn tiny" style="margin-top:7px" data-fedit="${k.id}">Change school</button>
+      <div class="cr-top">
+        <div><div class="cn">${esc(k.name)}</div>
+          <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${schoolDisplay(k)}</div></div>
+        <button class="linkbtn" data-fedit="${k.id}">Change school</button>
+      </div>
     </div>`).join("");
 
-  const outstanding = entries.reduce((n, entry) => {
+  const outstanding = upcoming.reduce((n, entry) => {
+    if (entry.event.cancelled) return n;
     let c = entry.kids.filter((k) => (entry.event.status.get(k.id) || "none") === "none").length;
     if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") c++;
     return n + c;
@@ -1152,7 +1201,7 @@ function renderFamily() {
   el("view-family").innerHTML = `
     <div class="page-head">
       <div><h2>Your family</h2>
-        <div class="count">${esc(me.name)} &middot; ${esc(kids.map((k) => k.firstName).join(" and "))}</div></div>
+        <div class="count">${esc(kids.map((k) => k.firstName).join(" and "))}</div></div>
     </div>
     <div class="alert ${outstanding ? "warn" : "ok"}" style="margin-bottom:16px">
       ${outstanding
@@ -1164,21 +1213,20 @@ function renderFamily() {
       from your children, because you can be unavailable on a night they still attend. Both answers appear on
       each session below.</div>` : ""}
     <div class="family">
-      <div>
-        <h3 style="font-size:15px;margin-bottom:11px">Coming up</h3>
-        ${cards}
-      </div>
+      <div>${body}</div>
       <div>
         <div class="side-card">
           <h3>Your children</h3>
           ${childCards}
         </div>
         <div class="side-card">
-          <h3>Your details</h3>
+          <div class="cr-top" style="margin-bottom:10px">
+            <h3 style="margin:0">Your details</h3>
+            <button class="linkbtn" data-fedit="${me.id}">Edit</button>
+          </div>
           <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
           <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
           <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
-          <button class="btn tiny" style="margin-top:11px" data-fedit="${me.id}">Edit your details</button>
         </div>
       </div>
     </div>
@@ -1197,7 +1245,7 @@ function familyEditModal() {
 
   if (p.type === "child") {
     const t = TEAM_BY_ID.get(p.teamId);
-    const known = t.schools.includes(p.school);
+    const known = !!p.school && t.schools.includes(p.school);
     return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Change school">
       <h3>${esc(p.firstName)}'s school</h3>
       <div class="msub">${esc(t.name)}</div>
@@ -1206,8 +1254,9 @@ function familyEditModal() {
           ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === p.school ? "selected" : ""}>${esc(sc)}</option>`).join("")}
           <option value="__other" ${known ? "" : "selected"}>Other&hellip;</option>
         </select>
-        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.school)}" ${known ? "hidden" : ""}>
-        <div class="hint">The club uses this to keep school friends together at training. No other parent ever sees it.</div>
+        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.schoolPending || p.school || "")}" ${known ? "hidden" : ""}>
+        <div class="hint">The club uses this to keep school friends together at training, and no other parent ever
+          sees it. If you type a school in yourself, the club will confirm it before it is used.</div>
       </div>
       ${err}${actions}</div></div>`;
   }
@@ -1230,25 +1279,21 @@ function wireFamily() {
   const root = el("view-family");
   const evById = (id) => TEAMS.flatMap((t) => t.events).find((e) => e.id === id);
 
+  root.querySelectorAll("[data-fev]").forEach((b) =>
+    b.onclick = () => {
+      state.familyOpenId = state.familyOpenId === b.dataset.fev ? null : b.dataset.fev;
+      renderFamily();
+    });
   root.querySelectorAll("[data-yes]").forEach((b) =>
     b.onclick = () => familyAnswer(evById(b.dataset.ev), Number(b.dataset.yes), "accepted"));
   root.querySelectorAll("[data-no]").forEach((b) =>
-    b.onclick = () => { state.familyDeclining = Number(b.dataset.no); state.familyDraft = ""; renderFamily(); });
-  root.querySelectorAll("[data-cancel-decline]").forEach((b) =>
-    b.onclick = () => { state.familyDeclining = null; renderFamily(); });
-  root.querySelectorAll("[data-send]").forEach((b) =>
-    b.onclick = () => {
-      const id = Number(b.dataset.send);
-      familyAnswer(evById(b.dataset.ev), id, "declined", el("fr-" + id).value.trim());
-    });
+    b.onclick = () => familyAnswer(evById(b.dataset.ev), Number(b.dataset.no), "declined"));
   root.querySelectorAll("[data-change]").forEach((b) =>
     b.onclick = () => {
       const e = evById(b.dataset.ev), id = Number(b.dataset.change);
-      e.status.set(id, "none"); e.reason.delete(id);
+      e.status.set(id, "none"); e.answeredBy.delete(id); e.answeredAt.delete(id);
       renderAll();
     });
-  const box = root.querySelector(".reasonbox");
-  if (box) box.oninput = (ev2) => { state.familyDraft = ev2.target.value; };
 
   root.querySelectorAll("[data-fedit]").forEach((b) =>
     b.onclick = () => {
@@ -1276,7 +1321,7 @@ function wireFamily() {
       const sel = el("f-school").value;
       const school = sel === "__other" ? el("f-school-other").value.trim() : sel;
       if (!school) { state.editError = "Pick a school, or type the name."; return renderFamily(); }
-      p.school = school;
+      setSchool(p, school, sel === "__other");
     } else {
       const first = el("f-first").value.trim(), last = el("f-last").value.trim();
       const email = el("f-email").value.trim();

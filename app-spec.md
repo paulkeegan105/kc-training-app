@@ -30,7 +30,11 @@ A child's school is entered by their own parent, and is visible only to the adul
 
 It is required, but it is prompted after signup rather than blocking it. Admins get a list of the children still missing one. A child with no school recorded is treated as a singleton for that session.
 
-Schools are a controlled list, maintained by an admin at club level. Parents pick from a dropdown, which includes an "other" option.
+Schools are a controlled list, maintained by a Club Admin. Parents pick from a dropdown, which includes an "other" option.
+
+A school typed into "other" is **not** added to the club's list. It is recorded against that child as unconfirmed and queued for a Club Admin, who either maps it to a school already on the list or adds it. Until they do, the child has no confirmed school, so the allocation counts them as a singleton. The field says the club will confirm it, so a parent is not left thinking the job is done.
+
+This keeps the list clean. If typing a school added it, "St Laurence's", "St Laurences" and "St. Laurence's NS" would become three schools within a season, and the affinity rules would quietly stop working.
 
 The ability rating is entered and seen by admins only, and is never shown to a parent.
 
@@ -51,6 +55,12 @@ A **station** is a fixed spot on the pitch with a drill set up at it. Stations d
 Squads rotate around the stations on a whistle until every station has been visited, and coaches travel with their squad rather than staying at a station.
 
 The app allocates squads and shows the pitch layout. What happens at each station is the coaches' business, not the app's.
+
+### Squad, and the one place it is called a team
+
+**Squad** is the word, everywhere, for a set of children and coaches the allocation puts together.
+
+**Team** means the age group — Under 9, Under 11 — everywhere in admin surfaces and throughout these specs. The one exception is a parent's event card for a match, where their child's squad is shown as a team, "Team 4", because that is what the club calls it on the day. Nothing else uses the word.
 
 ## Roles
 
@@ -140,7 +150,7 @@ This is the screen the app is judged on. It is the one nearly every parent uses,
 
 **The email.** Publishing sends each parent an email naming their child, carrying the event type, the date, the start and end time, the meet time and the venue, and two buttons: one to accept and one to decline.
 
-**The screen.** Both buttons open the same page. It shows the event, then asks whether that child can make it. Accepting is one tap. Declining asks for a reason in a single field, with a line saying that only the team admin sees it.
+**The screen.** Both buttons open the same page. It shows the event, then asks whether that child can make it. Accepting is one tap, and so is declining. No reason is asked for and none is stored: a parent who cannot make a session owes the club an answer, not an explanation, and asking for one makes the quick no harder to give than the quick yes.
 
 Answering re-runs the allocation straight away.
 
@@ -158,9 +168,9 @@ There is no standby or substitutes list. Every available child is placed in a sq
 
 Each person invited to an event has one of three statuses: accepted, declined, or no response. The event shows a count of each.
 
-A member who declines is asked for a reason. Only admins see it.
-
 An admin can override anyone's status. An override is visible to that person, shown as set by an admin, and feeds the allocation exactly like a real response.
+
+Each answer carries who set it and when — "Declined by Dad, Wed 16 Sep" — shown under the status to the household and to an admin. It is the answer that is live now, not a history: previous answers and who changed what are not kept or shown. An override reads as set by an admin, with the same date.
 
 An admin can send a chaser to an individual who hasn't responded. Chasers are per person, with no limit.
 
@@ -210,7 +220,11 @@ There is one export: an admin export of a session's squads, for printing or shar
 
 ## What parents see
 
-A parent sees their child's squad, the coaches for it, and the names of the other children in it.
+A parent sees the season calendar: every event of the season in date order, grouped by month, with the next upcoming one open by default. Past events stay on it, and a cancelled event stays in place with its reason. Drafts remain invisible to them. There are no status filters — upcoming, past and cancelled are the only states they can see, and the calendar already separates them.
+
+A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count. Their own child is sorted to the top of the players and set in bold rather than annotated, with a hidden label so a screen reader still says which name is theirs.
+
+A cancelled event drops the answers-due line, the venue, the meet time and the whole response block. It keeps the date, the time, the age group, the opposition where there is one, and the cancellation reason.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
 

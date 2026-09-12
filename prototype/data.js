@@ -41,11 +41,6 @@ const SURNAMES = [
   "Barry", "Keane", "Moran", "Power", "Whelan", "Sheehan", "Coleman", "Hanley", "Devlin", "Tobin",
   "Kavanagh", "Redmond", "Slattery", "Donovan", "Fahey", "Meaney", "Considine", "Lenihan", "Ahearne"
 ];
-const DECLINE_REASONS = [
-  "Away with family this week", "Birthday party", "Not well", "Swimming lessons clash",
-  "Working late", "Communion practice", "Back from holidays late", "Minding younger brother"
-];
-
 const CLUB = { name: "Kilmacud Crokes", irish: "Cill Mochuda na Crócaigh", crest: "Kilmacud_crokes_logo.png" };
 const TODAY = "2026-09-12";
 const NOW = new Date(2026, 8, 12, 10, 30);   // the prototype's "now"
@@ -93,7 +88,7 @@ function buildTeam(cfg) {
   });
 
   const stillMissing = shuffle(people.filter((p) => p.type === "child")).slice(0, cfg.noSchool || 0);
-  stillMissing.forEach((c) => { c.school = ""; });
+  stillMissing.forEach((c) => { c.school = ""; c.schoolUnconfirmed = false; });
 
   const coachHouseholds = households.slice(0, cfg.twoChild)
     .concat(shuffle(households.slice(cfg.twoChild)).slice(0, cfg.coaches - cfg.twoChild));
@@ -254,7 +249,7 @@ function buildEvents(team) {
       cancelled: spec.cancelled || null,
       mode: team.mode,
       past: spec.date < TODAY,
-      status: new Map(), reason: new Map()
+      status: new Map(), answeredBy: new Map(), answeredAt: new Map()
     };
     ev.longDate = longDate(ev.date);
     ev.shortDate = shortDate(ev.date);
@@ -276,12 +271,22 @@ function fillResponses(team, ev) {
     .concat(shuffle(coachHh.slice(team.id === "u9" ? 2 : 1)).slice(0, Math.max(0, coachTake - (team.id === "u9" ? 2 : 1))));
   const acceptedCoachIds = new Set(acceptedCoachHh.map((h) => h.adult.id));
 
+  /* a plausible moment in the week before the answer was due */
+  const answeredWhen = () => {
+    const anchor = Math.min(eventStart(ev).getTime(), NOW.getTime());
+    return new Date(anchor - (1 + Math.floor(rand() * 9)) * 86400000);
+  };
+  const setAnswer = (person, value, by) => {
+    ev.status.set(person.id, value);
+    if (value === "none") { ev.answeredBy.delete(person.id); ev.answeredAt.delete(person.id); return; }
+    ev.answeredBy.set(person.id, by);
+    ev.answeredAt.set(person.id, answeredWhen());
+  };
+
   coachHh.forEach((h) => {
-    if (acceptedCoachIds.has(h.adult.id)) { ev.status.set(h.adult.id, "accepted"); return; }
-    if (rand() < 0.6) {
-      ev.status.set(h.adult.id, "declined");
-      ev.reason.set(h.adult.id, pick(DECLINE_REASONS));
-    } else ev.status.set(h.adult.id, "none");
+    if (acceptedCoachIds.has(h.adult.id)) { setAnswer(h.adult, "accepted", h.adult.id); return; }
+    if (rand() < 0.6) setAnswer(h.adult, "declined", h.adult.id);
+    else setAnswer(h.adult, "none", null);
   });
 
   const mustAccept = new Set();
@@ -293,11 +298,15 @@ function fillResponses(team, ev) {
   others.slice(0, Math.max(0, target - mustAccept.size)).forEach((c) => accepted.add(c.id));
   const rest = others.slice(Math.max(0, target - mustAccept.size));
 
-  children.forEach((c) => ev.status.set(c.id, accepted.has(c.id) ? "accepted" : "none"));
-  rest.slice(0, Math.ceil(rest.length * 0.6)).forEach((c) => {
-    ev.status.set(c.id, "declined");
-    ev.reason.set(c.id, pick(DECLINE_REASONS));
+  const answerer = (c) => {
+    const adults = c.parentIds.map((id) => BY_ID.get(id)).filter(Boolean);
+    return adults.length ? adults[Math.floor(rand() * adults.length)].id : null;
+  };
+  children.forEach((c) => {
+    if (accepted.has(c.id)) setAnswer(c, "accepted", answerer(c));
+    else setAnswer(c, "none", null);
   });
+  rest.slice(0, Math.ceil(rest.length * 0.6)).forEach((c) => setAnswer(c, "declined", answerer(c)));
 }
 
 TEAMS.forEach((t) => { t.events = buildEvents(t); });
@@ -334,6 +343,9 @@ function deadlineFor(e) { return new Date(eventStart(e).getTime() - deadlineHour
 /* the reminder hangs off the deadline, so it lands a day before answers are due */
 function reminderFor(e) { return new Date(deadlineFor(e).getTime() - 24 * 3600000); }
 
+function fmtDay(d) {
+  return DAYS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3);
+}
 function fmtWhen(d) {
   return DAYS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3)
     + ", " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");

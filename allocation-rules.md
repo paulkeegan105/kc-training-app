@@ -10,7 +10,7 @@ Scope: how available players and coaches are split into squads for a single even
 
 Person and account are separate on purpose. A child has no login: they are linked to one or more adults, any of whom can answer for them. Availability attaches to the child, so there is one answer per child per event, and a coach's own availability is separate from their child's.
 
-**Squad** — what the allocation produces: a set of children and coaches who stay together for the session. At a match a squad is a team.
+**Squad** — what the allocation produces: a set of children and coaches who stay together for the session. At a match a squad is the side that plays together. On a parent's event card, and only there, a match squad is shown as "Team 4", because that is what the club calls it on the day. In this file and in every admin surface, "team" means the age group.
 
 **Station** — a fixed spot on the pitch with a drill set up at it. Stations do not move and are not allocated.
 
@@ -20,7 +20,8 @@ Squads rotate around the stations on a whistle until every station has been visi
 
 - The list of people who accepted the event, players and coaches separately.
 - Ability rating per child, 1 to 5, where 1 is strongest and 5 is weakest. Admin-only. A missing rating is treated as 3, and the admin is told which children are affected.
-- School per child, chosen from the club's list. Entered by the child's own parent and visible only to the adults linked to that child. A child with no school recorded is treated as a singleton for that session.
+- School per child, chosen from the club's list. Entered by the child's own parent and visible only to the adults linked to that child and to admins. A child with no school recorded is treated as a singleton for that session.
+- A school a parent typed into "other" is unconfirmed until a Club Admin maps it to the list or adds it. An unconfirmed school is not a school as far as this file is concerned: the child counts as a singleton, exactly as if none had been given. Two children who typed the same school by hand are not put together on the strength of it, because the spelling has not been checked.
 - Parent-to-child links.
 - The team's settings, below.
 
@@ -48,7 +49,7 @@ The 12 and the 8 are working defaults rather than club decisions, and want confi
 
 ## Matches and blitzes
 
-The allocation applies to matches and blitzes as well as training. At a match a squad is a team that plays together rather than one that rotates around stations, and a go-games team has a fixed size, set through the per-event settings override. All the same rules apply.
+The allocation applies to matches and blitzes as well as training. At a match a squad plays together rather than rotating around stations, and a go-games side has a fixed size, set through the per-event settings override. All the same rules apply.
 
 ## Deriving the number of squads
 
