@@ -339,6 +339,24 @@ The reasoning is about whose decision it is. What a Club Admin confirms is wheth
 
 **Item 20 and the "other" school handling are unchanged in substance.** The school still does not join the club list on a parent's say-so, it is still queued for a Club Admin, the admin's "School to confirm" filter still lists it, and the child is still counted a singleton in allocation until it is confirmed. Only what the parent is shown has changed.
 
+
+**74. The two times ran together on one line.** A row read "Today · Meet 11:00 · 11:30–12:40" — three time-like values in a row, of which only one is the one a parent acts on. The meet time is the instruction; the range is reference.
+
+**Decided.** They split across the two lines the card already has. The collapsed row carries the day and the meet time: "Today · Meet 11:00". The start and end move into the expanded detail, beside the venue: "Glenalbyn, Pitch 1 · 11:30–12:40". Nothing is removed — both times are still there, and end times are still kept because the calendar feed needs them.
+
+The range carries no label of its own. Being on a different line, next to the venue, is enough to say what it is, and it avoids wording that would have to branch between a training session and a match. Where an event has no meet time the start time goes on the collapsed row, and the range still sits in the detail.
+
+
+**75. Nothing on a row said whether it was training or a match.** The title carried it for matches — "Away to Cuala" — and for training the title simply read "Training", so the distinction lived in a place that changed shape between the two.
+
+**Decided.** A small word beside the date: "Training" or "Match".
+
+Text rather than colour, deliberately. A type colour would have to coexist with the cancelled state and the past state, both of which already use colour, and a row carrying three of them communicates nothing. Text in a fixed position is scannable without competing for the same channel.
+
+The date column was tightened to absorb the extra line, so rows are the height they were.
+
+Still **not** decided, and still being settled by watching people use it: which element leads a row, and whether training and matches should differ from each other in any stronger way than this. This adds the distinction without committing to that.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

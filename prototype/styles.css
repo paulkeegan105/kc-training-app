@@ -400,9 +400,9 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .family { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 22px; align-items: start; }
 @media (max-width: 900px) { .family { grid-template-columns: 1fr; } }
 
-.ev-when { flex: none; width: 58px; text-align: center; background: var(--brand-soft); color: var(--brand-soft-ink); border-radius: 10px; padding: 8px 4px; }
-.ev-when .dd { font-size: 21px; font-weight: 700; line-height: 1; }
-.ev-when .mm { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.ev-when { flex: none; width: 58px; text-align: center; }
+.ev-when .dd { font-size: 18px; font-weight: 700; line-height: 1.05; }
+.ev-when .mm { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; line-height: 1; }
 
 .kid-block { border-top: 1px solid var(--surface-2); padding: 14px 18px; }
 .answer-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -522,6 +522,12 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 
 /* the date tile reads as a date: number over month */
 .ev-when .dd, .ev-when .mm { display: block; }
+.ev-when .dd, .ev-when .mm { background: var(--brand-soft); color: var(--brand-soft-ink); }
+.ev-when .dd { border-radius: 10px 10px 0 0; padding: 5px 4px 0; }
+.ev-when .mm { border-radius: 0 0 10px 10px; padding: 1px 4px 5px; }
+/* the type word sits under the date, kept tight so it does not stretch the row */
+.ev-when .kind { display: block; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); margin-top: 3px; }
 
 /* the outstanding banner is also the way to reach what it counts */
 .alert-action {
@@ -574,8 +580,8 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 .field .err { margin-top: 2px; }
 
 /* ---- one control, not a button with a link inside it ---- */
-.alert-action { display: flex; align-items: center; gap: 12px; }
-.alert-action .alert-words { flex: 1; }
+.alert-action { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.alert-action .alert-words { flex: 0 1 auto; }
 /* part of the button's own label: no underline, no link colour, just its own words */
 .alert-action .alert-go { font-weight: 650; white-space: nowrap; text-decoration: none; }
 .alert-action:hover .alert-go { transform: translateX(2px); }

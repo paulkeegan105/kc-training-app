@@ -230,7 +230,11 @@ Where the signed-in adult has more than one child, a row of chips above the list
 
 The row leads with the event: the title, then the day and the times. The age group is not repeated on a parent's row, and neither is the child's name — a name appears **once per row, or not at all**.
 
-Times lead with the meet time, and only the meet time is labelled: "Meet 09:30 · 10:00–11:00". Where an event has no meet time the range stands alone. End times stay on matches, because the calendar feed needs them.
+The two times are split across the two lines rather than run together. The collapsed row carries the day and the meet time — "Today · Meet 11:00" — because that is the one a parent acts on. The start and end move into the expanded detail beside the venue: "Glenalbyn, Pitch 1 · 11:30–12:40". Both are kept; they are only separated.
+
+The range carries no label. The separation does that work, which also keeps the wording from having to branch between a training session and a match. Where an event has no meet time, the start time goes on the collapsed row and the range stays in the detail. End times are kept throughout, because the calendar feed needs them.
+
+A small word beside the date says what kind of session it is: "Training" or "Match". It is text rather than colour, because a type colour would have to share a row with the cancelled and past states, and three colours on one row stop meaning anything.
 
 The name, where it is needed, goes on the status rather than in the subline, because that is where it does work — it says whose answer this is. It appears when the row carries more than one answer, which is a coaching parent's own alongside their child's, and when the signed-in adult has more than one child, where the row would otherwise not say which of them it concerns. Where there is one child and one answer, there is no name in the subline and no label on the status: it could only be that child, and saying so twice says nothing.
 

@@ -184,6 +184,8 @@ function renderAll() {
 
 /* ---------------- calendar ---------------- */
 
+const TYPE_WORD = { Training: "Training", Game: "Match", Other: "Social" };
+
 function eventTitle(e) {
   if (e.title) return e.title;
   if (e.type === "Game") return (e.away ? "Away to " : "Home to ") + e.opposition;
@@ -1257,8 +1259,10 @@ function renderFamily() {
     const tagClass = e.cancelled ? "one" : people.length > 1 ? "stacked" : "one";
 
     // a cancelled event keeps the date, day, time range and opposition, and nothing else
-    const times = (e.meetTime && !e.cancelled ? "Meet " + e.meetTime + " &middot; " : "")
-      + e.time + "&ndash;" + e.endTime;
+    const range = e.time + "&ndash;" + e.endTime;
+    const subTime = e.cancelled ? range                       // cancelled rows keep their time as it was
+      : e.meetTime ? "Meet " + e.meetTime
+      : e.time;
     const rel = relativeDay(eventStart(e));
     const dayWord = (rel === "today" || rel === "tomorrow")
       ? rel.charAt(0).toUpperCase() + rel.slice(1) : e.dayName;
@@ -1274,17 +1278,18 @@ function renderFamily() {
     return `<div class="fev ${open ? "is-open" : ""} ${started ? "is-past" : ""} ${e.cancelled ? "is-cancelled" : ""}"
         id="fev-${e.id}">
       <button class="fev-head" data-fev="${e.id}" aria-expanded="${open}">
-        <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
+        <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span>
+          <span class="kind">${TYPE_WORD[e.type] || esc(e.type)}</span></span>
         <span class="fev-main">
           <span class="fev-title">${esc(eventTitle(e))}</span>
-          <span class="fev-sub">${dayWord} &middot; ${times}</span>
+          <span class="fev-sub">${dayWord} &middot; ${subTime}</span>
         </span>
         <span class="fev-tags ${tagClass}">${chips}</span>
       </button>
       ${open ? `<div class="fev-body">
         ${e.cancelled
           ? `<div class="alert stop" style="margin:0"><b>Cancelled.</b> ${esc(e.cancelled)}</div>`
-          : `<div class="fev-facts"><span>${esc(e.venue)}${e.away ? " &middot; away" : ""}</span></div>${blocks}`}
+          : `<div class="fev-facts"><span>${esc(e.venue)}${e.away ? " &middot; away" : ""} &middot; ${range}</span></div>${blocks}`}
       </div>` : ""}
     </div>`;
   };
