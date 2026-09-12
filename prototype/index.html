@@ -3,45 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kilcarrig GAA — Under 9</title>
-<link rel="stylesheet" href="styles.css">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>Kilmacud Crokes — juvenile training</title>
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
-<header class="topbar">
-  <div class="crest">KC</div>
-  <div>
-    <div class="club">Kilcarrig GAA</div>
-    <div class="sub">Under 9</div>
-  </div>
-  <div class="spacer"></div>
-  <div class="whoami">
-    <b>Máire Ní Bhriain</b>
-    Team Admin
-  </div>
-</header>
-
-<nav class="tabs" role="tablist">
-  <button role="tab" data-view="members" aria-selected="true">Members</button>
-  <button role="tab" data-view="event" aria-selected="false">Wednesday session</button>
-  <button role="tab" data-view="groups" aria-selected="false">Groups</button>
-  <button role="tab" data-view="parent" aria-selected="false">Parent view</button>
-</nav>
+<div class="appbar">
+  <header class="topbar">
+    <span class="crest"><img src="Kilmacud_crokes_logo.png" alt="Kilmacud Crokes crest"></span>
+    <div>
+      <div class="club">Kilmacud Crokes</div>
+      <div class="irish">Cill Mochuda na Crócaigh</div>
+    </div>
+    <select class="teampick" id="team-pick" aria-label="Choose age group"></select>
+    <div class="spacer"></div>
+    <div class="whoami" id="whoami"></div>
+    <button class="iconbtn" id="theme-toggle" aria-label="Switch between light and dark">◐</button>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-view="calendar" aria-selected="true">Calendar</button>
+    <button role="tab" data-view="members" aria-selected="false">Members</button>
+    <button role="tab" data-view="invite" aria-selected="false">Invitation</button>
+    <button role="tab" data-view="groups" aria-selected="false">Groups</button>
+    <button role="tab" data-view="parent" aria-selected="false">Parent view</button>
+  </nav>
+</div>
 
 <main>
-  <section class="view active" id="view-members"></section>
-  <section class="view" id="view-event"></section>
+  <section class="view active" id="view-calendar"></section>
+  <section class="view" id="view-members"></section>
+  <section class="view" id="view-invite"></section>
   <section class="view" id="view-groups"></section>
   <section class="view" id="view-parent"></section>
 </main>
 
 <footer>
-  Throwaway prototype. Sample data is generated in the browser and nothing is saved.
-  Allocation follows <code>allocation-rules.md</code> in balanced ability mode.
+  Throwaway prototype. Sample data is generated in the browser and nothing is saved &mdash; a refresh resets it.
+  Allocation follows <code>allocation-rules.md</code>.
 </footer>
 
-<script src="data.js"></script>
-<script src="allocate.js"></script>
-<script src="app.js"></script>
+<script src="data.js?v=5"></script>
+<script src="allocate.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

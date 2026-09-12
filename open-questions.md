@@ -12,6 +12,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Answered (allocation-rules.md, "Hard rules" and "When the rules can't all be met").** Group sizes give way. The hard rules are now: every group has at least one coach, a coach is with their own child, and every group meets the coach-to-child ratio — and a group will go over its target size if that is what it takes to keep every group staffed. Maximum group size is gone entirely, replaced by the ratio, so the old rule-2-versus-rule-3 conflict can no longer arise. When the rules still cannot all be met, the app names the rule that fails and why, suggests the change that would fix it (two more coaches would allow eight groups; dropping to five would meet the ratio), and lets the admin proceed — treated as a normal bad night rather than an error. One residual ambiguity: minimum group size appears both as a constraint on deriving the group count and as an aim that gives way, so it acts as a floor when choosing how many groups to make but not when placing people into them.
 
+**Updated.** A maximum squad size is back, as a hard cap defaulting to 12. The decision recorded above removed it entirely and left the coach ratio to do that work, but the ratio alone never stopped the allocation putting everybody together: seventy-five children and twelve coaches satisfies 1:8 in a single squad of seventy-five. The target and minimum sizes still give way to the staffing rules; the maximum is not an aim and never gives way.
+
 **3. Unregistered members "receive notifications straight away", but notifications are push and email only.** An admin adds a member with "a name and a contact detail". If that detail is a phone number, they have no push (no app) and no email, so they receive nothing — and no SMS is allowed. Should the contact detail be mandatorily an email?
 
 **Decided.** Every adult must have an email address; a phone number is optional and used for tap-to-call only. An unregistered member therefore always has an address that email notifications can reach, and the member-add flow now asks for a name and an email address.
@@ -23,6 +25,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **5. Parents never see a child's school or rating, but registered members "manage their own details".** Who enters a child's school and ability rating, and can a registered parent see or edit their *own* child's record? As written, "never sees any child's... school, anywhere in the app" includes their own child — which means the admin must source school data some other way.
 
 **Decided.** A child's school is entered and edited by their own parent and visible only to the adults linked to that child, with a short note on the field explaining why it is collected. It is required but prompted after signup rather than blocking it, and admins get a list of the children still missing one. The ability rating is entered and seen by admins only and is never shown to a parent, including their own child's.
+
+**Updated.** An admin can now also edit a child's school and rating, and an adult's name, email and phone, whether or not that adult has registered. That reaches past two things settled above — school editing belonging to the child's own parent, and a registered member's details being beyond an admin's reach — on the grounds that a name or an address typed wrong has to be fixable by someone. See item 44 in this file for the rest of the editing decision.
 
 **6. "One household has one account" vs "every parent gets a login" vs "their own account".** If both parents and a grandparent share one login, whose account is it, and what does "a parent does from their own account" mean? Compounding this: "members can set their own notification preferences", but all phones on an account get the same notifications. If Mum wants email only and Dad wants push, one shared account can't express that.
 
@@ -58,11 +62,18 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Superseded by the decision recorded at item 23.** Moving one of a coach and child pair now moves the other with it, so a manual move never splits them.
 
+
+**42. Squad and station were the same word.** The specs defined the thing the allocation produces as "one station at a training session", while the prototype labelled them Station 1, Station 2 and so on. Two different things were sharing one name: the set of children who stay together, and the spot on the pitch they walk to.
+
+**Decided.** Renamed throughout both specs. A **squad** is what the allocation produces: a set of children and coaches who stay together for the session. A **station** is a fixed spot on the pitch with a drill set up at it. Squads rotate around the stations on a whistle until every station has been visited, and coaches travel with their squad rather than staying at a station. The app allocates squads and shows the pitch layout; what happens at each station is the coaches' business.
+
 ## Gaps that block a build
 
 **12. Min/max players per group and min coaches per group are all TBC** — the entire group-count derivation depends on them. Are they set per team, per event, or per event type, and who sets them?
 
 **Answered (allocation-rules.md, "Settings"; app-spec.md, "Team settings"), apart from two numbers.** They are team settings, set per team by an admin because turnout and age change what works, and overridable on a single event — an override applies to that event only and never changes the team's settings. Defaults are now: maximum groups 10, minimum coaches per group 1, coach-to-child ratio 1:8, with the older age groups running 1:10. Max players per group no longer exists; the ratio and the target size replace it. Target group size and minimum group size are still TBC and are now the only two numbers outstanding — the specs record that they need the club.
+
+**Updated.** Target squad size now defaults to 8, and the new maximum squad size defaults to 12. Both are working defaults rather than club decisions. Minimum squad size is still outstanding, so all three want settling together rather than one at a time.
 
 **13. Does allocation apply to matches at all?** A group is "one station at a training session, or one team at a match". Those aren't the same constraint: a match squad size is fixed by the code (e.g. Go Games sides), not by an admin's min/max. Does an admin set the group count directly for games?
 
@@ -79,6 +90,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **16. A coach with two children in the same age group can't be in both their groups.** Twins and same-age siblings are common. Which child wins, or does the admin resolve it?
 
 **Decided.** All of a coach's children in that team go into their group, twins and same-age siblings included.
+
+**Updated.** This now depends on the coach-with-own-child setting recorded at item 46. With the setting on, all of a coach's children in that team go into their squad, as decided above. With it off, a coach isn't tied to any of their children and the question doesn't arise.
 
 **17. Precedence between step 1 and the school-affinity floor is undefined.** Coaches' children are placed first, before the mode is applied, so a coach's child can land as the only one from their school in that group. Does the affinity floor get to move them afterwards, or does the coach spread win?
 
@@ -106,9 +119,13 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Decided.** The app never re-runs the allocation by itself: it reports who has changed and which rules are now broken, and the admin decides. A re-run keeps everyone where they are and makes the fewest moves that satisfy the rules, and re-publishing notifies only those whose group has changed.
 
+**Superseded.** The allocation now re-runs by itself whenever something changes it, and there is no re-run button. What was decided above — that the app never re-runs on its own and the admin decides — no longer holds. What survives: a re-run makes the fewest moves that satisfy the rules, pinned people stay put, and re-publishing notifies only those whose squad changed. Added: every re-run is announced with what caused it and what changed, so the squads never change silently.
+
 **23. Does moving a child move their coaching parent?** Manual moves are pinned; moving one half of a coach/child pair breaks hard rule 1. Does the app move both, or break the rule and report it?
 
 **Decided.** Moving one of a coach and child pair moves the other with it, and warns the admin. This supersedes the answer recorded at item 41: a manual move can no longer split the pair, though it can still break the other hard rules.
+
+**Updated.** The pair move now depends on the coach-with-own-child setting recorded at item 46. With the setting on, moving one of the pair moves the other, as decided above. With it off there is no pair to hold together and a coach moves on their own.
 
 **24. Recurring event edits.** Does editing or cancelling one occurrence affect the series? What happens to a series when a member is added mid-way?
 
@@ -137,6 +154,51 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **30. Member CSV import is in Notes, not scope.** Given Teamer has no export and closes 5 October 2026, is it in?
 
 **Decided.** In scope. The member CSV import moves out of Notes and into the spec, matching the one for events.
+
+
+**43. The coach count the squad count is derived from.** The rules derived everything from the coaches who accepted. But a coach who accepts on a night their own child isn't attending cannot be placed anywhere, because a coach only ever goes in their own child's squad — so the number who accepted and the number who can actually coach are two different numbers.
+
+**Decided.** A coach in that position stands down for the session. The squad count, the ratio and the minimum coaches per squad are all worked out from the coaches who can actually coach. Twelve acceptances with one of their children declining is eleven coaches for every rule in the file. The admin is told who stood down and why, and shown both numbers so the gap is never a surprise.
+
+
+**44. An admin could not fix a member's details.** Nothing in the spec let an admin correct a name, a school, a rating, an email or a phone number, and the registered-member rule explicitly put a signed-up adult's details beyond their reach.
+
+**Decided.** An admin can edit a child's name, school and rating, and an adult's name, email and phone. This holds whether or not the adult has registered. See the update recorded at item 5, which this reaches past.
+
+
+**45. The parent's side of an invitation was never specified.** The specs covered publishing, the three availability statuses and decline reasons, but never described the email a parent actually receives or the screen they answer on — which is the most-used screen in the app and the only one some parents ever see.
+
+**Decided.** Publishing sends each parent an email naming their child and carrying the event type, date, start and end time, meet time and venue, with an accept button and a decline button. Both open the same phone-first page: it shows the event, asks whether that child can make it, takes an acceptance in one tap, and asks a declining parent for a reason in a single field with a line saying only the team admin sees it. Answering re-runs the allocation straight away. A parent can change their answer afterwards, as often as they need, up to the event itself.
+
+
+**46. Coach-with-own-child was an unconditional hard rule.** It forced every coach into their own child's squad with no way to turn it off, which also forced the stand-down: a coach whose child was absent could not be used at all, however short the session was of adults.
+
+**Decided.** It becomes a team setting, defaulting to on. **On**, it behaves exactly as specified, stand-down included. **Off**, coaches are spread evenly wherever they're needed, nobody stands down, and a coach can take a session their own child misses. It is a team setting rather than a fixed rule because the answer differs by age group. This makes items 16, 23 and 41 conditional on the setting.
+
+
+**47. Events had a list view and a calendar view, and no season view.** Nothing said what an admin or a parent sees when they want the shape of the term rather than one night.
+
+**Decided.** A season calendar: every event of the season in date order, grouped by month, with the next upcoming event open by default because it is the one being asked about. Drafts appear on it marked as drafts and visible to admins only. A cancelled event stays on the calendar with its reason.
+
+
+**48. An adult with children in two age groups could see both teams, with no way to move between them.** The spec said they "see both" and stopped there.
+
+**Decided.** They can switch between those teams from anywhere in the app.
+
+
+**49. Publishing sent an email and nothing else,** in clubs that in practice run on WhatsApp group chats.
+
+**Decided.** Publishing sends the invitation email and also offers a WhatsApp share link carrying the same content for the team's group chat. Email is the record that reaches everyone; WhatsApp is the nudge. The link is a share and not a second channel: no response comes back through it and nothing is tracked through it, so it doesn't disturb the single-channel decision recorded at item 6.
+
+
+**50. Adults were players by default.** The Roles section opened with "Everyone is added as a player by default", which made every parent a player of an under-9 team.
+
+**Decided.** Adults are never players. An adult's role is Team Admin, Event Manager, or nothing at all, and nothing at all is the normal case for a parent. The default player role for adults is removed. Children are players.
+
+
+**51. Parents receive a session plan and a pitch layout diagram, and neither is specified.** Alongside their child's squad, a parent gets a plan of the activities for the session and a simple diagram of the pitch. Nothing in either spec describes what is in them.
+
+**Recorded as a known gap, not decided.** The session plan is the club's to define rather than the app's: what goes into it is a coaching decision, and the app's part is carrying it to parents. The pitch layout diagram shows where the stations are and the route squads take between them, but what it has to show, and whether it is drawn per event or per venue, is undecided. Both need the club before either can be built.
 
 ## Things I'd have to invent to build it
 
@@ -181,6 +243,10 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 **40. Timeline.** Teamer closes 5 October 2026, which is under four weeks away. The scope above is considerably more than that allows, so I'd assume a cut-down first release — which of these is genuinely needed by 5 October versus later?
 
 **Decided.** The first release covers teams and members, creating and publishing events, availability, and group allocation. Everything else waits.
+
+**52. The club's visual identity and any accessibility floor.** Nothing specified colours, where branding lives, or any contrast standard — the crest was mentioned once, as something a Club Admin maintains.
+
+**Decided.** The crest and the club colours live in one place and are used from there, so changing them is one change rather than a hunt. All text meets WCAG AA contrast — 4.5:1 for body text, 3:1 for large text and interface controls — in both light and dark mode. That is a floor rather than an aspiration: a colour that cannot carry text at that contrast is used as a fill and not as text.
 
 ---
 

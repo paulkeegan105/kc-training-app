@@ -236,8 +236,9 @@ function allocate(opts) {
     || assignCoachCounts(sizes, coaching.length, s)
     || spreadCoachesAnyway(count, coaching.length);
 
+  const label = opts.groupLabel || "Station";
   const groups = sizes.map((size, i) => ({
-    id: i, name: "Station " + (i + 1),
+    id: i, name: label + " " + (i + 1),
     capacity: size, coachCapacity: coachCounts[i] || 0,
     children: [], coaches: []
   }));

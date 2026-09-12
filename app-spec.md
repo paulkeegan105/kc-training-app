@@ -4,7 +4,7 @@ An app for one GAA club to organise training sessions, matches and social events
 
 The players are young children. The people using the app are their parents and the volunteer coaches, who are themselves parents of players.
 
-Group allocation is specified separately in `allocation-rules.md`. Read both.
+Squad allocation is specified separately in `allocation-rules.md`. Read both.
 
 ## People and accounts
 
@@ -26,7 +26,7 @@ An adult can be linked to more than one child, including children in different a
 
 ## School and ability rating
 
-A child's school is entered and edited by their own parent, and is visible only to the adults linked to that child. The field carries a short note explaining why it is collected.
+A child's school is entered by their own parent, and is visible only to the adults linked to that child and to admins. The field carries a short note explaining why it is collected. An admin can also correct it — see *Editing members*.
 
 It is required, but it is prompted after signup rather than blocking it. Admins get a list of the children still missing one. A child with no school recorded is treated as a singleton for that session.
 
@@ -40,11 +40,21 @@ A team is an age group: Under 6, Under 7 and so on. The app holds many of them.
 
 All teams belong to the same club and share one crest, maintained by a Club Admin at club level rather than per team.
 
-Teams are private. A person only sees a team they have been added to. An adult with children in two age groups sees both.
+Teams are private. A person only sees a team they have been added to. An adult with children in two age groups sees both, and can switch between those teams from anywhere in the app.
+
+## Squads and stations
+
+A **squad** is what the allocation produces: a set of children and coaches who stay together for the session. How squads are worked out is in `allocation-rules.md`.
+
+A **station** is a fixed spot on the pitch with a drill set up at it. Stations do not move and are not allocated.
+
+Squads rotate around the stations on a whistle until every station has been visited, and coaches travel with their squad rather than staying at a station.
+
+The app allocates squads and shows the pitch layout. What happens at each station is the coaches' business, not the app's.
 
 ## Roles
 
-Everyone is added as a player by default.
+Children are players. Adults are never players: an adult's role is Team Admin, Event Manager, or nothing at all, and nothing at all is the normal case for a parent. There is no default player role for an adult.
 
 **Club Admin** — sits above the teams. A Club Admin creates teams, appoints the first Team Admin of each, and maintains the crest, the school list and the venue list.
 
@@ -64,11 +74,13 @@ Coach is a flag on a parent within a team, set by an admin and turned on or off 
 
 Every coach is a parent of a child in that team. A parent who isn't flagged is never treated as a coach.
 
-Being flagged is what gets someone invited to an event as a coach. Whether they're coaching on a given night is their own availability answer, which they give separately from their child's, because a parent can be unavailable on a night their child still attends. A coach can only be placed in a group with their own child, so a night where the coach accepts and the child declines means that parent isn't coaching either.
+Being flagged is what gets someone invited to an event as a coach. Whether they're coaching on a given night is their own availability answer, which they give separately from their child's, because a parent can be unavailable on a night their child still attends.
+
+Whether a coach is tied to their own child's squad is a team setting. With it on, a coach who accepts on a night their own child declines cannot be placed and stands down for that session. With it off, they coach wherever they are needed. Both are in `allocation-rules.md`.
 
 ## Team settings
 
-Each team carries the numbers the allocation runs on: maximum groups, minimum coaches per group, coach-to-child ratio, and target and minimum group size. Defaults and meanings are in `allocation-rules.md`.
+Each team carries the numbers the allocation runs on: maximum squads, maximum, target and minimum squad size, minimum coaches per squad, the coach-to-child ratio, and whether a coach is always placed with their own child. Defaults and meanings are in `allocation-rules.md`.
 
 An admin sets them per team, because turnout and age change what works. An admin can also override them on a single event, which applies to that event only and leaves the team's settings alone.
 
@@ -78,9 +90,13 @@ A team also carries a default event duration of 1 hour 15, overridable on a sing
 
 An admin adds a member by typing a name and an email address. That member exists and receives notifications straight away without doing anything. They are **unregistered**, and the admin can edit their details.
 
-When that person signs up using the same email address, they become **registered**. From then on they manage their own details and the admin cannot edit them.
+When that person signs up using the same email address, they become **registered**. From then on they manage their own details.
 
 Show the difference clearly in the member list so an admin can see who has signed up and who hasn't.
+
+### Editing members
+
+An admin can edit a member's details: a child's name, school and rating, and an adult's name, email and phone. This holds whether or not the adult has registered, because a name or an address typed wrong has to be fixable by someone.
 
 Members can also be uploaded in bulk from a CSV template, matching the one for events, with a downloadable template provided.
 
@@ -108,9 +124,29 @@ An event starts as a draft. A draft is invisible to members, freely editable, an
 
 Publishing is a separate step, and it is what sends the invitations. Publishing invites everyone on the team, meaning every child and every flagged coach. The admin can deselect people before publishing.
 
+Publishing sends the invitation email, and also offers a WhatsApp share link carrying the same content for the team's group chat. Email is the record that reaches everyone; WhatsApp is the nudge. The link is a share and not a second channel: no response comes back through it and nothing is tracked through it.
+
 Once an event is published, cancelling is the only way to withdraw it. Cancelling asks the admin for a reason and notifies everyone. A published event can still be edited.
 
-Events appear in a list view and a calendar view. The calendar can be subscribed to from Google Calendar, iCal or Outlook, so new events appear there automatically.
+### The season calendar
+
+Events appear as a season calendar: every event of the season in date order, grouped by month. The next upcoming event is open by default, because it is the one being asked about. Drafts appear on it as drafts, clearly marked and visible to admins only. A cancelled event stays on the calendar with its reason.
+
+The calendar can be subscribed to from Google Calendar, iCal or Outlook, so new events appear there automatically.
+
+## The parent's invitation
+
+This is the screen the app is judged on. It is the one nearly every parent uses, and the only one some of them ever see, so it is built for a phone first.
+
+**The email.** Publishing sends each parent an email naming their child, carrying the event type, the date, the start and end time, the meet time and the venue, and two buttons: one to accept and one to decline.
+
+**The screen.** Both buttons open the same page. It shows the event, then asks whether that child can make it. Accepting is one tap. Declining asks for a reason in a single field, with a line saying that only the team admin sees it.
+
+Answering re-runs the allocation straight away.
+
+A parent can change their answer afterwards, as often as they need to, up to the event itself. The screen shows the answer already given and offers to change it.
+
+A coaching parent answers for themselves separately from their child, because a parent can be unavailable on a night their child still attends.
 
 ## CSV imports
 
@@ -118,7 +154,7 @@ Both the event import and the member import are validated as a whole. Nothing is
 
 ## Availability
 
-There is no standby or substitutes list. Every available child is placed in a group.
+There is no standby or substitutes list. Every available child is placed in a squad.
 
 Each person invited to an event has one of three statuses: accepted, declined, or no response. The event shows a count of each.
 
@@ -136,11 +172,17 @@ Members respond per event. There are no blackout dates and no date-range unavail
 
 Email only. There is no SMS anywhere in the app, and push notifications are not in the first release.
 
-Notifications go out for a new event invitation, a chaser, a reminder, a cancellation, and when the groups for an event are published. When groups are re-published, only those whose group has changed are notified.
+Notifications go out for a new event invitation, a chaser, a reminder, a cancellation, and when the squads for an event are published. When squads are re-published, only those whose squad has changed are notified.
 
 There are no per-adult notification preferences. With a single channel there is nothing to choose between.
 
+The WhatsApp share link offered at publishing is a share rather than a channel. It carries the same content into a group chat, and nobody is notified or tracked through it.
+
 Push is expected in a later release. Notifications should be built with the channel behind one sending path, so that adding push is a new channel rather than a rewrite.
+
+## Keeping the squads current
+
+The allocation re-runs by itself whenever something changes it, and there is no re-run button. Whenever it does, say so: what caused it, and what changed as a result. The rules are in `allocation-rules.md`.
 
 ## Contacting people
 
@@ -148,17 +190,31 @@ From a member's entry an admin can call them, email them, or save them to the ph
 
 ## Exports
 
-There is one export: an admin export of a session's groups, for printing or sharing. It carries names, groups and coaches only, and never ability ratings or schools.
+There is one export: an admin export of a session's squads, for printing or sharing. It carries names, squads and coaches only, and never ability ratings or schools.
 
 ## What parents see
 
-A parent sees their child's group, the coaches for it, and the names of the other children in it.
+A parent sees their child's squad, the coaches for it, and the names of the other children in it.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
 
+## Branding and accessibility
+
+The club's crest and colours live in one place and are used from there, so changing them is one change rather than a hunt. The crest is maintained by a Club Admin.
+
+All text meets WCAG AA contrast, 4.5:1 for body text and 3:1 for large text and interface controls, in both light and dark mode. That is a floor rather than an aspiration: a colour that cannot carry text at that contrast is used as a fill and not as text.
+
+## Known gaps
+
+Parents also receive a session plan of activities and a simple pitch layout diagram alongside their child's squad. Neither is specified.
+
+The session plan is the club's to define, not the app's. What goes into it is a coaching decision; the app's part is carrying it to parents.
+
+The pitch layout diagram shows where the stations are and the route squads take between them. What it has to show, and whether it is drawn per event or per venue, is undecided.
+
 ## First release
 
-The first release covers teams and members, creating and publishing events, availability, and group allocation. Email is the only notification channel in it. Everything else waits.
+The first release covers teams and members, creating and publishing events, the parent's invitation and availability, the season calendar, and squad allocation. Email is the only notification channel in it. Everything else waits.
 
 ## Explicitly out of scope
 
