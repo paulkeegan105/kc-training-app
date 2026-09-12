@@ -51,9 +51,9 @@ function evaluateGroupCounts(nChildren, nCoaches, s) {
     const row = { groups: g, sizes, avg: nChildren / g, feasible: false, reason: "" };
     if (nChildren === 0) { row.reason = "nobody has accepted"; rows.push(row); continue; }
     if (Math.min(...sizes) < s.minGroupSize) {
-      row.reason = "would put a group below the minimum of " + s.minGroupSize;
+      row.reason = "would put a squad below the minimum of " + s.minGroupSize;
     } else if (nCoaches < g * s.minCoachesPerGroup) {
-      row.reason = "not enough coaches for " + s.minCoachesPerGroup + " per group";
+      row.reason = "not enough coaches for " + s.minCoachesPerGroup + " per squad";
     } else {
       const counts = assignCoachCounts(sizes, nCoaches, s);
       if (!counts) row.reason = "can't meet the 1:" + s.ratio + " ratio with " + nCoaches + " coaches";
@@ -73,7 +73,7 @@ function suggestFix(nChildren, nCoaches, s) {
   }
   for (let m = s.minGroupSize - 1; m >= 1; m--) {
     if (evaluateGroupCounts(nChildren, nCoaches, { ...s, minGroupSize: m }).some((r) => r.feasible)) {
-      return "dropping the minimum group size to " + m + " would make it work";
+      return "dropping the minimum squad size to " + m + " would make it work";
     }
   }
   for (let r = s.ratio + 1; r <= s.ratio + 12; r++) {
@@ -211,7 +211,7 @@ function allocate(opts) {
       || { groups: opts.forcedCount, sizes: splitEven(children.length, opts.forcedCount), feasible: false, reason: "" };
     if (!chosen.feasible) {
       failed = true;
-      failure = "You set " + chosen.groups + " groups by hand. " +
+      failure = "You set " + chosen.groups + " squads by hand. " +
         (chosen.reason || "That count can't satisfy the rules") + ".";
     }
   } else if (feasible.length) {
@@ -225,7 +225,7 @@ function allocate(opts) {
     const fallback = Math.max(1, Math.min(s.maxGroups, coaching.length || 1, wanted));
     chosen = candidates.find((c) => c.groups === fallback) || candidates[0]
       || { groups: 1, sizes: [children.length], reason: "" };
-    failure = "No group count satisfies every rule for " + children.length + " children and "
+    failure = "No squad count satisfies every rule for " + children.length + " children and "
       + coaching.length + (coaching.length === 1 ? " coach. " : " coaches. ")
       + suggestFix(children.length, coaching.length, s) + ".";
   }
@@ -236,7 +236,7 @@ function allocate(opts) {
     || assignCoachCounts(sizes, coaching.length, s)
     || spreadCoachesAnyway(count, coaching.length);
 
-  const label = opts.groupLabel || "Station";
+  const label = opts.groupLabel || "Squad";
   const groups = sizes.map((size, i) => ({
     id: i, name: label + " " + (i + 1),
     capacity: size, coachCapacity: coachCounts[i] || 0,
@@ -299,10 +299,10 @@ function checkRules(groups, byId, s, mode, accepted) {
 
   const short = live.filter((g) => g.coaches.length < s.minCoachesPerGroup);
   out.push({
-    rule: "Every group has at least " + s.minCoachesPerGroup
+    rule: "Every squad has at least " + s.minCoachesPerGroup
       + (s.minCoachesPerGroup === 1 ? " coach" : " coaches"),
     ok: short.length === 0,
-    detail: short.length ? short.map((g) => g.name).join(", ") + " short of coaches" : "all groups staffed"
+    detail: short.length ? short.map((g) => g.name).join(", ") + " short of coaches" : "all squads staffed"
   });
 
   const split = [];
@@ -315,7 +315,7 @@ function checkRules(groups, byId, s, mode, accepted) {
     });
   }));
   out.push({
-    rule: "A coach is in the same group as their own children",
+    rule: "A coach is in the same squad as their own children",
     ok: split.length === 0,
     detail: split.length ? split.join("; ") : "every coaching parent is with their own children"
   });
@@ -325,20 +325,20 @@ function checkRules(groups, byId, s, mode, accepted) {
   const worst = live.length
     ? Math.max(...live.map((g) => g.coaches.length ? g.children.length / g.coaches.length : Infinity)) : 0;
   out.push({
-    rule: "Every group meets the 1:" + s.ratio + " ratio",
+    rule: "Every squad meets the 1:" + s.ratio + " ratio",
     ok: over.length === 0,
     detail: over.length
       ? over.map((g) => g.name + " is " + g.children.length + " to " + g.coaches.length).join(", ")
-      : "worst group is " + worst.toFixed(1) + " children per coach"
+      : "worst squad is " + worst.toFixed(1) + " children per coach"
   });
 
   const under = live.filter((g) => g.children.length < s.minGroupSize);
   out.push({
-    rule: "No group below the minimum of " + s.minGroupSize,
+    rule: "No squad below the minimum of " + s.minGroupSize,
     ok: under.length === 0, soft: true,
     detail: under.length
       ? under.map((g) => g.name + " has " + g.children.length).join(", ")
-      : "smallest group is " + Math.min(...live.map((g) => g.children.length))
+      : "smallest squad is " + Math.min(...live.map((g) => g.children.length))
   });
 
   if (mode === "school") {
@@ -350,7 +350,7 @@ function checkRules(groups, byId, s, mode, accepted) {
       }
     }));
     out.push({
-      rule: "No child is the only one from their school in their group",
+      rule: "No child is the only one from their school in their squad",
       ok: alone.length === 0, soft: true,
       detail: alone.length ? alone.length + " alone: " + alone.slice(0, 4).join(", ")
         + (alone.length > 4 ? " and " + (alone.length - 4) + " more" : "")

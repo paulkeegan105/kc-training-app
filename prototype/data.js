@@ -48,6 +48,7 @@ const DECLINE_REASONS = [
 
 const CLUB = { name: "Kilmacud Crokes", irish: "Cill Mochuda na Crócaigh", crest: "Kilmacud_crokes_logo.png" };
 const TODAY = "2026-09-12";
+const NOW = new Date(2026, 8, 12, 10, 30);   // the prototype's "now"
 
 let nextId = 1;
 const BY_ID = new Map();
@@ -91,6 +92,9 @@ function buildTeam(cfg) {
     return { adult, kids };
   });
 
+  const stillMissing = shuffle(people.filter((p) => p.type === "child")).slice(0, cfg.noSchool || 0);
+  stillMissing.forEach((c) => { c.school = ""; });
+
   const coachHouseholds = households.slice(0, cfg.twoChild)
     .concat(shuffle(households.slice(cfg.twoChild)).slice(0, cfg.coaches - cfg.twoChild));
   coachHouseholds.forEach((h) => { h.adult.coachIn[cfg.id] = true; h.adult.registered = true; });
@@ -111,9 +115,9 @@ function buildTeam(cfg) {
 const TEAMS = [
   buildTeam({
     id: "u9", name: "Under 9", shortName: "U9", mode: "school",
-    children: 90, coaches: 15, twoChild: 2,
+    children: 90, coaches: 15, twoChild: 2, noSchool: 4,
     ratings: [11, 20, 28, 20, 11],
-    settings: { maxGroups: 10, minCoachesPerGroup: 1, ratio: 8, targetGroupSize: 8, minGroupSize: 6 },
+    settings: { maxGroups: 10, minCoachesPerGroup: 1, ratio: 8, targetGroupSize: 8, minGroupSize: 6, deadlineHours: 24 },
     schools: [
       { name: "Our Lady's Grove", count: 24 }, { name: "St Laurence's NS", count: 20 },
       { name: "Mount Anville NS", count: 16 }, { name: "Taney NS", count: 13 },
@@ -122,9 +126,9 @@ const TEAMS = [
   }),
   buildTeam({
     id: "u11", name: "Under 11", shortName: "U11", mode: "ability",
-    children: 64, coaches: 11, twoChild: 1,
+    children: 64, coaches: 11, twoChild: 1, noSchool: 3,
     ratings: [8, 14, 20, 14, 8],
-    settings: { maxGroups: 10, minCoachesPerGroup: 1, ratio: 10, targetGroupSize: 10, minGroupSize: 7 },
+    settings: { maxGroups: 10, minCoachesPerGroup: 1, ratio: 10, targetGroupSize: 10, minGroupSize: 7, deadlineHours: 24 },
     schools: [
       { name: "Our Lady's Grove", count: 17 }, { name: "St Laurence's NS", count: 15 },
       { name: "Mount Anville NS", count: 12 }, { name: "Taney NS", count: 9 },
@@ -135,16 +139,17 @@ const TEAMS = [
 
 const TEAM_BY_ID = new Map(TEAMS.map((t) => [t.id, t]));
 
-/* one parent with a child in each age group, so the switcher has something to show.
-   The U11 household's own adult is replaced, so the child reads as the same family. */
-const SHARED_PARENT = (function () {
-  const u9 = TEAMS[0], u11 = TEAMS[1];
-  const parent = u9.coachHouseholds[3].adult;                 // a U9 coach
-  const hh = u11.households.find((h) => h.kids.length === 1 && !h.adult.coachIn.u11);
-  const child = hh.kids[0];
-  const oldAdult = hh.adult;
+/* Sign-in personas. Three distinct people, because a Team Admin, a coaching parent and a
+   plain parent are three different views of the app.
 
-  // the child takes the family surname and the shared parent's account
+   An adult linked to a child in two age groups is put together by replacing the U11
+   household's own adult, so the child reads as part of the same family. */
+
+function linkAcrossTeams(parent, u11Household) {
+  const child = u11Household.kids[0];
+  const oldAdult = u11Household.adult;
+  const u11 = TEAMS[1];
+
   child.lastName = parent.lastName;
   child.name = child.firstName + " " + parent.lastName;
   child.parentIds = [parent.id];
@@ -154,14 +159,40 @@ const SHARED_PARENT = (function () {
   u11.people.splice(u11.people.indexOf(oldAdult), 1);
   BY_ID.delete(oldAdult.id);
   u11.people.push(parent);
-  hh.adult = parent;
+  u11Household.adult = parent;
+  return child;
+}
 
-  // the signed-in admin: one person with a child in each age group, admin of both
-  parent.roleIn.u9 = "admin";
-  parent.roleIn.u11 = "admin";
-  parent.registered = true;
-  return { parent, u9Child: BY_ID.get(parent.childIds[0]), u11Child: child };
+const PERSONAS = (function () {
+  const u9 = TEAMS[0], u11 = TEAMS[1];
+  const freeU11 = u11.households.filter((h) => h.kids.length === 1 && !h.adult.coachIn.u11 && !h.adult.roleIn.u11);
+
+  /* A Team Admin. Admins are parents too, so they have a child of their own — in both
+     age groups here, which is what lets them administer both. Not a coach. */
+  const admin = u9.households.find((h) => h.adult.roleIn.u9 === "admin" && h.kids.length === 1).adult;
+  admin.coachIn.u9 = false;
+  admin.roleIn.u11 = "admin";
+  admin.registered = true;
+  linkAcrossTeams(admin, freeU11[0]);
+
+  /* A coaching parent with no admin rights at all. */
+  const coach = u9.coachHouseholds.find((h) => h.adult !== admin && !h.adult.roleIn.u9 && h.kids.length === 1).adult;
+  coach.registered = true;
+
+  /* A plain parent: no role, no coach flag, a child in each age group. */
+  const plain = u9.households.find((h) =>
+    h.kids.length === 1 && !h.adult.coachIn.u9 && !h.adult.roleIn.u9 && h.adult !== admin).adult;
+  plain.registered = true;
+  linkAcrossTeams(plain, freeU11[1]);
+
+  return [
+    { id: admin.id, blurb: "Runs both age groups. Sees the admin side, and their own children like any parent." },
+    { id: coach.id, blurb: "Coaches Under 9. No admin rights — they see the app as a parent does." },
+    { id: plain.id, blurb: "No role, no coaching. A child in each age group, both in one place." }
+  ];
 })();
+
+const SHARED_PARENT = { parent: BY_ID.get(PERSONAS[2].id) };
 
 /* ---- the season ------------------------------------------------------- */
 
@@ -271,8 +302,55 @@ function fillResponses(team, ev) {
 
 TEAMS.forEach((t) => { t.events = buildEvents(t); });
 
-const CURRENT_USER = SHARED_PARENT.parent;
 const ROLE_LABEL = { admin: "Team Admin", manager: "Event Manager" };
+
+/* what a signed-in person can do */
+function teamsFor(person) {
+  const ids = new Set();
+  Object.keys(person.roleIn || {}).forEach((t) => { if (person.roleIn[t]) ids.add(t); });
+  (person.childIds || []).forEach((id) => { const c = BY_ID.get(id); if (c) ids.add(c.teamId); });
+  return TEAMS.filter((t) => ids.has(t.id));
+}
+function adminTeamsFor(person) {
+  return TEAMS.filter((t) => person.roleIn && person.roleIn[t.id]);
+}
+function isAdmin(person) { return adminTeamsFor(person).length > 0; }
+
+/* ---- the response deadline -------------------------------------------
+   A team setting in hours before the start, overridable on a single event.
+   Nothing locks when it passes: a parent can still change their answer. */
+
+function eventStart(e) {
+  const [y, m, d] = e.date.split("-").map(Number);
+  const [hh, mm] = e.time.split(":").map(Number);
+  return new Date(y, m - 1, d, hh, mm);
+}
+function deadlineHoursFor(e) {
+  const t = TEAM_BY_ID.get(e.teamId);
+  return e.deadlineHours != null ? e.deadlineHours : t.settings.deadlineHours;
+}
+function deadlineFor(e) { return new Date(eventStart(e).getTime() - deadlineHoursFor(e) * 3600000); }
+
+/* the reminder hangs off the deadline, so it lands a day before answers are due */
+function reminderFor(e) { return new Date(deadlineFor(e).getTime() - 24 * 3600000); }
+
+function fmtWhen(d) {
+  return DAYS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3)
+    + ", " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+function humanGap(ms) {
+  const hrs = ms / 3600000;
+  if (hrs < 1) return Math.max(1, Math.round(ms / 60000)) + " min";
+  if (hrs < 48) { const h = Math.round(hrs); return h + (h === 1 ? " hour" : " hours"); }
+  const d = Math.round(hrs / 24);
+  return d + (d === 1 ? " day" : " days");
+}
+function deadlineState(e) {
+  const at = deadlineFor(e);
+  const ms = at - NOW;
+  if (ms <= 0) return { closed: true, at, label: "Responses closed", chip: "Responses closed" };
+  return { closed: false, at, label: "Answers due in " + humanGap(ms), chip: "Closes in " + humanGap(ms) };
+}
 
 function nextEventFor(team) {
   return team.events.find((e) => !e.past && e.published && !e.cancelled)

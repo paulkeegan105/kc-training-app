@@ -5,46 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store">
 <title>Kilmacud Crokes — juvenile training</title>
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 
-<div class="appbar">
-  <header class="topbar">
-    <span class="crest"><img src="Kilmacud_crokes_logo.png" alt="Kilmacud Crokes crest"></span>
-    <div>
-      <div class="club">Kilmacud Crokes</div>
-      <div class="irish">Cill Mochuda na Crócaigh</div>
-    </div>
-    <select class="teampick" id="team-pick" aria-label="Choose age group"></select>
-    <div class="spacer"></div>
-    <div class="whoami" id="whoami"></div>
-    <button class="iconbtn" id="theme-toggle" aria-label="Switch between light and dark">◐</button>
-  </header>
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-view="calendar" aria-selected="true">Calendar</button>
-    <button role="tab" data-view="members" aria-selected="false">Members</button>
-    <button role="tab" data-view="invite" aria-selected="false">Invitation</button>
-    <button role="tab" data-view="groups" aria-selected="false">Groups</button>
-    <button role="tab" data-view="parent" aria-selected="false">Parent view</button>
-  </nav>
+<div class="signin" id="signin">
+  <div class="signin-card">
+    <span class="crest big"><img src="Kilmacud_crokes_logo.png" alt="Kilmacud Crokes crest"></span>
+    <h1>Kilmacud Crokes</h1>
+    <p class="lede">Juvenile training. Choose who to sign in as.</p>
+    <div class="personas" id="personas"></div>
+    <p class="foot">A prototype stands in for the real sign-in. No passwords, and nothing is saved.</p>
+  </div>
 </div>
 
-<main>
-  <section class="view active" id="view-calendar"></section>
-  <section class="view" id="view-members"></section>
-  <section class="view" id="view-invite"></section>
-  <section class="view" id="view-groups"></section>
-  <section class="view" id="view-parent"></section>
-</main>
+<div id="app" hidden>
+  <div class="appbar">
+    <header class="topbar">
+      <span class="crest"><img src="Kilmacud_crokes_logo.png" alt="Kilmacud Crokes crest"></span>
+      <div>
+        <div class="club">Kilmacud Crokes</div>
+        <div class="irish">Cill Mochuda na Crócaigh</div>
+      </div>
+      <select class="teampick" id="team-pick" aria-label="Choose age group"></select>
+      <div class="spacer"></div>
+      <div class="whoami" id="whoami"></div>
+      <button class="iconbtn" id="theme-toggle" aria-label="Switch between light and dark">◐</button>
+      <button class="btn ghost" id="sign-out">Sign out</button>
+    </header>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+  </div>
 
-<footer>
-  Throwaway prototype. Sample data is generated in the browser and nothing is saved &mdash; a refresh resets it.
-  Allocation follows <code>allocation-rules.md</code>.
-</footer>
+  <main>
+    <section class="view" id="view-family"></section>
+    <section class="view" id="view-calendar"></section>
+    <section class="view" id="view-members"></section>
+    <section class="view" id="view-invite"></section>
+    <section class="view" id="view-groups"></section>
+  </main>
 
-<script src="data.js?v=5"></script>
-<script src="allocate.js?v=5"></script>
-<script src="app.js?v=5"></script>
+  <footer>
+    Throwaway prototype. Sample data is generated in the browser and nothing is saved &mdash; a refresh resets it.
+    Allocation follows <code>allocation-rules.md</code>.
+  </footer>
+</div>
+
+<script src="data.js?v=7"></script>
+<script src="allocate.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

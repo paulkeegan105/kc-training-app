@@ -6,8 +6,23 @@ const STATUS_LABEL = { accepted: "Accepted", declined: "Declined", none: "No res
 const pill = (s) => `<span class="pill ${s}">${STATUS_LABEL[s]}</span>`;
 const ratingChip = (r) => `<span class="rating r${r}">${r}</span>`;
 const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
+const NO_SCHOOL_LABEL = "No school recorded";
+const schoolOf = (c) => c.school || NO_SCHOOL_LABEL;
+
+/* wherever a rating is shown, say which end is which */
+const ratingLegend = (style = "") => `<div class="legend" ${style ? `style="${style}"` : ""}>
+    <span class="lk">Ability rating</span>
+    <span class="rating r1">1</span><span class="lt">strongest</span>
+    <span class="lsep">&rarr;</span>
+    <span class="rating r5">5</span><span class="lt">weakest</span>
+    <span class="lock">Admin only</span>
+  </div>`;
 
 const state = {
+  signedInId: null,
+  editScope: "admin",
+  familyDeclining: null,
+  familyDraft: "",
   teamId: "u9",
   eventId: null,
   settings: null,
@@ -24,6 +39,7 @@ const state = {
   editError: ""
 };
 
+const signedIn = () => BY_ID.get(state.signedInId);
 const team = () => TEAM_BY_ID.get(state.teamId);
 const ev = () => team().events.find((e) => e.id === state.eventId);
 const teamChildren = () => team().people.filter((p) => p.type === "child");
@@ -97,9 +113,26 @@ function rerun(keepPins = true, reason = null) {
     children: acceptedChildren(), coaches: acceptedCoaches(), byId: BY_ID,
     settings: state.settings, mode: state.mode, pins: state.pins,
     forcedCount: state.groupCount || null,
-    groupLabel: e.type === "Game" ? "Team" : "Station"
+    groupLabel: e.type === "Game" ? "Team" : "Squad"
   });
   if (reason) state.rerunNotice = describeRerun(reason, before, placementSnapshot());
+}
+
+/* Publishing freezes what parents see. The snapshot is what the family view reads,
+   so a later re-run doesn't quietly change a squad someone was already told about. */
+function publishSquads(e, result) {
+  if (!result || !result.groups) return;
+  e.squads = result.groups.map((g) => ({
+    name: g.name,
+    childIds: g.children.map((c) => c.id),
+    coachIds: g.coaches.map((c) => c.id)
+  }));
+  e.squadsPublished = true;
+}
+
+function squadForChild(e, childId) {
+  if (!e.squadsPublished || !e.squads) return null;
+  return e.squads.find((sq) => sq.childIds.includes(childId)) || null;
 }
 
 /* the other age group's allocation, for a parent with a child in each */
@@ -108,19 +141,23 @@ function allocationFor(t, e) {
   const kids = t.people.filter((p) => p.type === "child" && e.status.get(p.id) === "accepted");
   const coaches = t.people.filter((p) => p.type === "adult" && p.coachIn[t.id] && e.status.get(p.id) === "accepted");
   return allocate({ children: kids, coaches, byId: BY_ID, settings: t.settings, mode: t.mode,
-    pins: new Map(), groupLabel: e.type === "Game" ? "Team" : "Station" });
+    pins: new Map(), groupLabel: e.type === "Game" ? "Team" : "Squad" });
 }
 
 function renderWhoami() {
-  const role = CURRENT_USER.roleIn[state.teamId];
-  el("whoami").innerHTML = `<b>${esc(CURRENT_USER.name)}</b>${role ? esc(ROLE_LABEL[role]) : "Member"}`
-    + (CURRENT_USER.coachIn[state.teamId] ? " &middot; coach" : "");
+  const me = signedIn();
+  const bits = adminTeamsFor(me).map((t) => ROLE_LABEL[me.roleIn[t.id]] + ", " + t.name)
+    .concat(TEAMS.filter((t) => me.coachIn[t.id]).map((t) => "Coach, " + t.name));
+  el("whoami").innerHTML = "<b>" + esc(me.name) + "</b>" + (bits.length ? bits.map(esc).join(" &middot; ") : "Parent");
 }
 
 function renderAll() {
+  const me = signedIn();
+  if (!me) return;
   const y = window.scrollY;
   renderWhoami();
-  renderCalendar(); renderMembers(); renderInvite(); renderGroups(); renderParent();
+  if (isAdmin(me)) { renderCalendar(); renderMembers(); renderInvite(); renderGroups(); }
+  renderFamily();
   window.scrollTo(0, y);
 }
 
@@ -151,7 +188,12 @@ function renderCalendar() {
       if (e.cancelled) tags.push('<span class="tag cancelled">Cancelled</span>');
       else if (e.draft) tags.push('<span class="tag draft">Draft &middot; not published</span>');
       else if (e.past) tags.push('<span class="tag unreg">Finished</span>');
-      if (e.published && !e.cancelled) tags.push(`<span class="pill accepted">${counts[0]} in</span>`);
+      if (e.published && !e.cancelled) {
+        const invited = counts[0] + counts[1] + counts[2];
+        tags.push(`<span class="pill accepted">${counts[0]} of ${invited} accepted</span>`);
+        const ds = deadlineState(e);
+        tags.push(`<span class="tag ${ds.closed ? "unreg" : "coach"}">${ds.chip}</span>`);
+      }
 
       return `<div class="evrow ${open ? "is-open" : ""} ${e.draft ? "is-draft" : ""} ${e.cancelled ? "is-cancelled" : ""} ${e.past ? "is-past" : ""}">
         <button class="evhead" data-event="${e.id}">
@@ -175,6 +217,19 @@ function renderCalendar() {
             ${e.opposition ? `<div><div class="k">Opposition</div>${esc(e.opposition)}</div>` : ""}
             <div><div class="k">Mode</div>${e.mode === "ability" ? "Balanced ability" : "School affinity"}</div>
           </div>
+          ${e.published && !e.cancelled ? `<div class="deadline-bar">
+            <div>
+              <div class="k">Response deadline</div>
+              <div class="dl-main">${fmtWhen(deadlineFor(e))} &middot;
+                <span class="${deadlineState(e).closed ? "dl-closed" : "dl-open"}">${deadlineState(e).label}</span></div>
+              <div class="sub">Reminder to non-responders goes out ${fmtWhen(reminderFor(e))}, a day before answers are due.
+                Nothing locks: a parent can still change their answer, and the allocation re-runs when they do.</div>
+            </div>
+            <label class="dl-set">Hours before start
+              <input type="number" min="1" max="336" id="dl-${e.id}" value="${deadlineHoursFor(e)}">
+              <span class="sub">team default ${TEAM_BY_ID.get(e.teamId).settings.deadlineHours}</span>
+            </label>
+          </div>` : ""}
           ${e.published && !e.cancelled ? `<div class="mini-stats">
             <div class="accepted"><b>${counts[0]}</b> accepted</div>
             <div class="declined"><b>${counts[1]}</b> declined</div>
@@ -218,6 +273,21 @@ function renderCalendar() {
     b.onclick = () => showView(b.dataset.go));
   el("view-calendar").querySelectorAll("[data-caltab]").forEach((b) =>
     b.onclick = () => { calTab = b.dataset.caltab; renderCalendar(); });
+  el("view-calendar").querySelectorAll("[data-calstatus]").forEach((b) =>
+    b.onclick = () => { calStatus = b.dataset.calstatus; renderCalendar(); });
+  const cs = el("cal-search");
+  if (cs) cs.oninput = () => {
+    calSearch = cs.value;
+    const at = cs.selectionStart;
+    renderCalendar();
+    const ns = el("cal-search"); if (ns) { ns.focus(); ns.setSelectionRange(at, at); }
+  };
+  const dl = el("dl-" + state.eventId);
+  if (dl) dl.onchange = () => {
+    const e2 = ev();
+    e2.deadlineHours = Math.max(1, Math.min(336, Number(dl.value) || 24));
+    renderAll();
+  };
   el("view-calendar").querySelectorAll(".status-pick").forEach((sel) =>
     sel.onchange = () => {
       const id = Number(sel.dataset.person);
@@ -242,7 +312,19 @@ function responseList(e) {
   const coaches = t.people.filter((p) => p.type === "adult" && p.coachIn[t.id]);
   const rank = { accepted: 0, declined: 1, none: 2 };
 
-  const rows = (calTab === "children" ? kids : coaches).slice()
+  let people = (calTab === "children" ? kids : coaches).slice();
+  const counts = { accepted: 0, declined: 0, none: 0 };
+  people.forEach((p) => { counts[e.status.get(p.id) || "none"]++; });
+
+  if (calStatus !== "all") people = people.filter((p) => (e.status.get(p.id) || "none") === calStatus);
+  if (calSearch) {
+    const q = calSearch.toLowerCase();
+    people = people.filter((p) => p.name.toLowerCase().includes(q)
+      || (p.type === "child" ? parentsOf(p) : p.childIds.map((id) => BY_ID.get(id)).filter(Boolean))
+           .some((r) => r.name.toLowerCase().includes(q)));
+  }
+
+  const rows = people
     .sort((a, b) => rank[e.status.get(a.id) || "none"] - rank[e.status.get(b.id) || "none"]
       || a.lastName.localeCompare(b.lastName))
     .map((p) => {
@@ -265,10 +347,17 @@ function responseList(e) {
     <div class="toolbar" style="margin:14px 0 8px">
       <button class="chip" data-caltab="children" aria-pressed="${calTab === "children"}">Children (${kids.length})</button>
       <button class="chip" data-caltab="coaches" aria-pressed="${calTab === "coaches"}">Coaches (${coaches.length})</button>
+      <span style="width:12px"></span>
+      ${[["all", "All"], ["accepted", "Accepted"], ["declined", "Declined"], ["none", "No response"]]
+        .map(([k, l]) => `<button class="chip" data-calstatus="${k}" aria-pressed="${calStatus === k}">${l}${
+          k === "all" ? "" : " (" + counts[k] + ")"}</button>`).join("")}
+      <div class="spacer"></div>
+      <input class="search" id="cal-search" placeholder="Search a name" value="${esc(calSearch)}">
     </div>
-    <div class="card" style="max-height:360px;overflow:auto"><table>
+    <div class="card"><table>
       <thead><tr><th>Name</th><th>Status</th><th>Reason given</th><th style="text-align:right">Change</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>
+      <tbody>${rows || `<tr><td colspan="4" class="sub" style="padding:20px">Nobody matches that.</td></tr>`}</tbody>
+    </table></div>
     <div class="notice">An admin can override anyone's response. The override is visible to that person,
       shown as set by an admin, and feeds the allocation exactly like a real answer.</div>`;
 }
@@ -276,15 +365,17 @@ function responseList(e) {
 /* ---------------- members ---------------- */
 
 let memberFilter = "all", memberSearch = "";
-let calTab = "children";
+let calTab = "children", calStatus = "all", calSearch = "";
 
 function renderMembers() {
   const t = team();
+  const noSchoolCount = t.people.filter((p) => p.type === "child" && !p.school).length;
   let rows = t.people.slice();
   if (memberFilter === "children") rows = rows.filter((p) => p.type === "child");
   if (memberFilter === "adults") rows = rows.filter((p) => p.type === "adult");
   if (memberFilter === "coaches") rows = rows.filter((p) => p.coachIn && p.coachIn[t.id]);
   if (memberFilter === "unregistered") rows = rows.filter((p) => p.type === "adult" && !p.registered);
+  if (memberFilter === "noschool") rows = rows.filter((p) => p.type === "child" && !p.school);
   if (memberSearch) {
     const q = memberSearch.toLowerCase();
     rows = rows.filter((p) => p.name.toLowerCase().includes(q) || (p.school || "").toLowerCase().includes(q));
@@ -296,7 +387,7 @@ function renderMembers() {
       const ps = parentsOf(p).map((a) => a.name + (a.coachIn[t.id] ? " (coach)" : "")).join(", ");
       return `<tr>
         <td><div class="name">${esc(p.name)}</div><div class="sub">Child &middot; ${esc(ps)}</div></td>
-        <td>${esc(p.school)}</td>
+        <td>${p.school ? esc(p.school) : `<span class="tag unreg">${NO_SCHOOL_LABEL}</span>`}</td>
         <td>${ratingChip(p.rating)}</td>
         <td class="rolecell">Player</td>
         <td></td>
@@ -333,11 +424,13 @@ function renderMembers() {
       <button class="btn">Import CSV</button><button class="btn primary">Add member</button>
     </div>
     <div class="toolbar">
-      ${[["all", "All"], ["children", "Children"], ["adults", "Adults"], ["coaches", "Coaches"], ["unregistered", "Unregistered"]]
+      ${[["all", "All"], ["children", "Children"], ["adults", "Adults"], ["coaches", "Coaches"],
+         ["unregistered", "Unregistered"], ["noschool", "No school (" + noSchoolCount + ")"]]
         .map(([k, l]) => `<button class="chip" data-filter="${k}" aria-pressed="${memberFilter === k}">${l}</button>`).join("")}
       <div class="spacer"></div>
       <input class="search" id="member-search" placeholder="Search name or school" value="${esc(memberSearch)}">
     </div>
+    ${ratingLegend("margin:0 0 12px")}
     <div class="card"><table>
       <thead><tr><th>Name</th><th>School <span class="lock">Admin only</span></th>
         <th>Rating <span class="lock">Admin only</span></th><th>Role</th><th>Coaching</th>
@@ -359,7 +452,10 @@ function renderMembers() {
       renderAll();
     });
   el("view-members").querySelectorAll("[data-edit]").forEach((b) =>
-    b.onclick = () => { state.editingId = Number(b.dataset.edit); state.editError = ""; renderMembers(); });
+    b.onclick = () => {
+      state.editingId = Number(b.dataset.edit); state.editScope = "admin"; state.editError = "";
+      renderMembers();
+    });
   wireEditModal();
 
   const s = el("member-search");
@@ -372,7 +468,7 @@ function renderMembers() {
 }
 
 function editModal() {
-  if (!state.editingId) return "";
+  if (!state.editingId || state.editScope !== "admin") return "";
   const p = BY_ID.get(state.editingId);
   if (!p) return "";
   const t = team();
@@ -401,7 +497,8 @@ function editModal() {
       <div class="field"><label for="f-rating">Ability rating</label>
         <select id="f-rating">${[1, 2, 3, 4, 5].map((n) =>
           `<option value="${n}" ${n === p.rating ? "selected" : ""}>${n}${n === 1 ? " — strongest" : n === 5 ? " — needs most support" : ""}</option>`).join("")}</select>
-        <div class="hint">Admin only. Never shown to any parent, and never given as the reason for a placement.</div>
+        <div class="hint">1 is strongest and 5 is weakest. Admin only: never shown to any parent,
+          and never given as the reason for a placement.</div>
       </div>
       ${err}${actions}</div></div>`;
   }
@@ -565,8 +662,8 @@ function renderInvite() {
       <div class="pcard">
         <div class="ask">Can ${esc(child.firstName)} make it?</div>
         <div class="answer-btns">
-          <button class="btn gold" id="say-yes">Yes, ${esc(child.firstName)} will be there</button>
-          <button class="btn" id="say-no">No, can't make it</button>
+          <button class="btn choice" id="say-yes">Yes, ${esc(child.firstName)} will be there</button>
+          <button class="btn choice" id="say-no">No, can't make it</button>
         </div>
         <div class="note" style="margin-top:11px">You are answering for ${esc(child.name)}.
           ${parent && parent.coachIn[t.id] ? "You are asked separately about coaching on the night." : ""}</div>
@@ -601,8 +698,8 @@ function renderInvite() {
                 ${facts}
                 <p>Can ${esc(child.firstName)} make it?</p>
                 <div class="mbtns">
-                  <button class="btn gold" id="mail-yes">Yes</button>
-                  <button class="btn" id="mail-no">Can't make it</button>
+                  <button class="btn choice" id="mail-yes">Yes, coming</button>
+                  <button class="btn choice" id="mail-no">Can't make it</button>
                 </div>
               </div>
               <div class="foot">You are getting this because ${esc(child.firstName)} is on the ${t.name} team.
@@ -658,9 +755,9 @@ function renderInvite() {
 function renderGroups() {
   const e = ev(), t = team();
   const head = `<div class="page-head">
-      <div><h2>Groups</h2><div class="count">${esc(eventTitle(e))} &middot; ${e.longDate} &middot; ${t.name}</div></div>
+      <div><h2>Squads</h2><div class="count">${esc(eventTitle(e))} &middot; ${e.longDate} &middot; ${t.name}</div></div>
       <div class="spacer"></div>
-      <button class="btn primary">Publish groups</button></div>`;
+      <button class="btn primary" id="publish-squads">${e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button></div>`;
 
   if (!e.published) {
     el("view-groups").innerHTML = head + `<div class="alert warn"><b>This event is a draft.</b>
@@ -675,6 +772,7 @@ function renderGroups() {
 
   const r = state.result, s = state.settings;
   const sizes = r.groups.map((g) => g.children.length);
+  const noSchool = acceptedChildren().filter((c) => !c.school).length;
   const nChildren = acceptedChildren().length, nCoaches = acceptedCoaches().length;
 
   const controls = `
@@ -683,7 +781,7 @@ function renderGroups() {
         <label>Mode<select id="set-mode">
           <option value="ability" ${state.mode === "ability" ? "selected" : ""}>Balanced ability</option>
           <option value="school" ${state.mode === "school" ? "selected" : ""}>School affinity</option></select></label>
-        <label>Groups<select id="set-count">
+        <label>Squads<select id="set-count">
           <option value="0" ${state.groupCount === 0 ? "selected" : ""}>Auto</option>
           ${Array.from({ length: Math.max(s.maxGroups, 1) }, (_, i) => i + 1).map((n) =>
             `<option value="${n}" ${state.groupCount === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
@@ -691,15 +789,15 @@ function renderGroups() {
         <label>Minimum size <input type="number" id="set-min" min="1" max="60" value="${s.minGroupSize}"></label>
         <label>Coach ratio 1: <input type="number" id="set-ratio" min="1" max="40" value="${s.ratio}"></label>
         <label>Min coaches <input type="number" id="set-mincoach" min="0" max="6" value="${s.minCoachesPerGroup}"></label>
-        <label>Max groups <input type="number" id="set-max" min="1" max="20" value="${s.maxGroups}"></label>
+        <label>Max squads <input type="number" id="set-max" min="1" max="20" value="${s.maxGroups}"></label>
       </div>
     </div>`;
 
   const fail = r.failed ? `<div class="alert stop"><b>The rules can't all be met.</b> ${esc(r.failure)}
-      This is a normal outcome on a bad night, not an error &mdash; the groups below are still shown so you can proceed.</div>` : "";
+      This is a normal outcome on a bad night, not an error &mdash; the squads below are still shown so you can proceed.</div>` : "";
 
   const updated = state.rerunNotice ? `<div class="alert info">
-      <b>Groups updated.</b> ${esc(state.rerunNotice.reason)} &mdash; ${esc(state.rerunNotice.detail)}.
+      <b>Squads updated.</b> ${esc(state.rerunNotice.reason)} &mdash; ${esc(state.rerunNotice.detail)}.
       <button class="link" id="dismiss-rerun">dismiss</button></div>` : "";
 
   const move = state.lastMove ? `<div class="alert ${state.lastMove.broke.length ? "stop" : "ok"}">
@@ -716,7 +814,7 @@ function renderGroups() {
 
   const cands = r.candidates.map((c) => `
     <tr class="${c.groups === r.chosen.groups ? "chosen" : ""}">
-      <td>${plural(c.groups, "group", "groups")}</td>
+      <td>${plural(c.groups, "squad", "squads")}</td>
       <td class="${c.feasible ? "yes" : "no"}">${c.feasible
         ? "averages " + c.avg.toFixed(1) + " children"
           + (c.groups === r.chosen.groups && !r.forced ? " &larr; closest to the target of " + s.targetGroupSize : "")
@@ -727,11 +825,19 @@ function renderGroups() {
       <span class="mark">${c.ok ? "&check;" : (c.soft ? "!" : "&times;")}</span>
       <span><b>${c.rule}</b> &mdash; <span class="d">${c.detail}</span></span></div>`).join("");
 
+  const moveBox = (id, kind, fromId) => `<select class="moveto" data-move="${id}" data-movekind="${kind}"
+      aria-label="Move to another squad">
+      <option value="">Move&hellip;</option>
+      ${r.groups.filter((x) => x.id !== fromId).map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}
+    </select>`;
+
   const cards = r.groups.map((g) => {
     const counts = [1, 2, 3, 4, 5].map((x) => g.children.filter((c) => c.rating === x).length);
     const spread = counts.map((n, i) => n ? `<span style="flex:${n};background:var(--r${i + 1})" title="${n} rated ${i + 1}"></span>` : "").join("");
-    const schools = [...new Set(g.children.map((c) => c.school))].map((sc) => {
-      const n = g.children.filter((c) => c.school === sc).length;
+    const spreadLabel = `<div class="spread-label">Ability spread &middot; ${counts
+      .map((n, i) => n ? n + "&times;" + (i + 1) : null).filter(Boolean).join(", ")}</div>`;
+    const schools = [...new Set(g.children.map(schoolOf))].map((sc) => {
+      const n = g.children.filter((c) => schoolOf(c) === sc).length;
       return `<span class="schooltag ${n === 1 ? "lone" : ""}">${esc(sc.split(",")[0])} ${n}</span>`;
     }).join("");
     const coaches = g.coaches.map((c) => {
@@ -739,23 +845,26 @@ function renderGroups() {
       return `<div class="person coach" draggable="true" data-person="${c.id}" data-kind="coach">
         <span class="tag coach">Coach</span>
         <span class="nm">${esc(c.name)}${state.pins.has(c.id) ? ' <span class="pin" title="Pinned by a manual move">&#9679;</span>' : ""}</span>
-        <span class="sub">${kids.length ? "with " + kids.map((k) => esc(k.firstName)).join(" &amp; ") : ""}</span></div>`;
+        <span class="sub">${kids.length ? "with " + kids.map((k) => esc(k.firstName)).join(" &amp; ") : ""}</span>
+        ${moveBox(c.id, "coach", g.id)}</div>`;
     }).join("") || '<div class="sub" style="padding:3px 0">No coach</div>';
     const kids = g.children.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
       <div class="person" draggable="true" data-person="${c.id}" data-kind="child">
         <span class="nm">${esc(c.name)}${state.pins.has(c.id) ? ' <span class="pin" title="Pinned by a manual move">&#9679;</span>' : ""}</span>
-        ${state.mode === "school" ? `<span class="mini">${esc(c.school.split(",")[0].slice(0, 12))}</span>` : ""}
-        ${ratingChip(c.rating)}</div>`).join("");
+        ${state.mode === "school" ? `<span class="mini ${c.school ? "" : "none"}">${esc(schoolOf(c).split(",")[0].slice(0, 14))}</span>` : ""}
+        ${ratingChip(c.rating)}
+        ${moveBox(c.id, "child", g.id)}</div>`).join("");
     const bad = g.coaches.length < s.minCoachesPerGroup || g.children.length > (g.coaches.length || 0) * s.ratio;
 
     return `<div class="group ${bad ? "bad" : ""}" data-group="${g.id}">
       <header><h3>${g.name}</h3>
         <span class="n">${plural(g.children.length, "child", "children")} &middot; ${plural(g.coaches.length, "coach", "coaches")}</span></header>
       <div class="spread">${spread}</div>
+      ${spreadLabel}
       <div class="section">
         ${state.mode === "school" ? `<div class="schools">${schools}</div>` : ""}
         <h4>Coaching</h4>${coaches}
-        <h4>Players <span class="lock">Ratings admin only</span></h4>${kids}
+        <h4>Players</h4>${kids}
       </div></div>`;
   }).join("");
 
@@ -763,22 +872,33 @@ function renderGroups() {
     <div class="banner">
       <div class="lead"><b>${plural(nChildren, "child", "children")}</b> and <b>${plural(nCoaches, "coach", "coaches")}</b> accepted${
         r.coachesUsed !== nCoaches ? " (" + r.coachesUsed + " able to coach)" : ""},
-        split into <b>${plural(r.groups.length, "group", "groups")}</b>${sizes.length
+        split into <b>${plural(r.groups.length, "squad", "squads")}</b>${sizes.length
           ? " of " + Math.min(...sizes) + "&ndash;" + Math.max(...sizes) : ""}.</div>
-      <details class="why"><summary>Why ${r.groups.length} groups?</summary>
+      <details class="why"><summary>Why ${r.groups.length} squads?</summary>
         <table class="cand">${cands}</table></details>
     </div>
     <div class="checks">${checks}</div>
     <div class="groups-head">
-      <h3>${r.groups.length} ${e.type === "Game" ? (r.groups.length === 1 ? "team" : "teams") : (r.groups.length === 1 ? "station" : "stations")}</h3>
+      <h3>${r.groups.length} ${e.type === "Game" ? (r.groups.length === 1 ? "team" : "teams") : (r.groups.length === 1 ? "squad" : "squads")}</h3>
       <div class="spacer"></div>
       <button class="btn" id="btn-undo" ${state.pins.size ? "" : "disabled"}>Undo manual moves${state.pins.size ? " (" + state.pins.size + ")" : ""}</button>
     </div>
-    <div class="groups" id="groups-grid">${cards}</div>
-    <div class="notice">Drag a child or a coach onto another group to move them. A manual move is pinned and
-      survives a re-run. Moving one of a coach and child pair moves the other with it.</div>`;
+    <div class="notice" style="margin-top:0">Drag a child or a coach onto another squad, or use the
+      <b>Move&hellip;</b> box beside any name. A manual move is pinned and survives a re-run, and moving one of
+      a coach and child pair moves the other with it.</div>
+    ${ratingLegend("margin:0 0 12px")}
+    ${state.mode === "school" && noSchool ? `<div class="alert warn">
+      ${plural(noSchool, "child", "children")} attending ${noSchool === 1 ? "has" : "have"} no school recorded,
+      so school affinity treats ${noSchool === 1 ? "them" : "them"} as singletons.
+      <button class="link" id="show-noschool">show them in the member list</button></div>` : ""}
+    <div class="groups" id="groups-grid">${cards}</div>`;
 
   wireSettings(); wireDragDrop();
+  if (el("publish-squads")) el("publish-squads").onclick = () => {
+    publishSquads(e, state.result);
+    state.rerunNotice = { reason: "Squads published", detail: "parents can now see their child's squad and coaches" };
+    renderAll();
+  };
 }
 
 function wireSettings() {
@@ -817,6 +937,14 @@ function wireSettings() {
   };
   if (el("undo-note")) el("undo-note").onclick = () => { state.lastMove = null; renderGroups(); };
   if (el("dismiss-rerun")) el("dismiss-rerun").onclick = () => { state.rerunNotice = null; renderGroups(); };
+  if (el("show-noschool")) el("show-noschool").onclick = () => {
+    memberFilter = "noschool"; renderMembers(); showView("members");
+  };
+  document.querySelectorAll("#groups-grid .moveto").forEach((sel) =>
+    sel.onchange = () => {
+      if (sel.value === "") return;
+      movePerson(Number(sel.dataset.move), sel.dataset.movekind, Number(sel.value));
+    });
 }
 
 /* ---------------- manual moves ---------------- */
@@ -854,7 +982,7 @@ function movePerson(personId, kind, toIdx) {
   const broke = state.result.checks.filter((c) => !c.ok).map((c) => c.rule + " (" + c.detail + ")");
   const who = movedCoaches.concat(movedChildren).map((p) => p.firstName || p.name);
   state.lastMove = { what: who.join(", ") + " moved from " + from.name + " to " + to.name + ".", broke, pairNote };
-  renderGroups(); renderParent();
+  renderGroups(); renderFamily();
 }
 
 function wireDragDrop() {
@@ -885,115 +1013,360 @@ function wireDragDrop() {
   });
 }
 
-/* ---------------- parent view ---------------- */
+/* ---------------- a parent's own view ---------------- */
 
-let parentId = null;
-
-function renderParent() {
-  const e = ev(), t = team();
-  const wrap = el("view-parent");
-  const head = `<div class="page-head"><div><h2>What a parent sees</h2>
-    <div class="count">${esc(eventTitle(e))} &middot; ${e.longDate}</div></div></div>`;
-
-  if (!state.result) {
-    wrap.innerHTML = head + `<div class="alert warn">No groups for this event yet, so there is nothing for a parent to see.</div>`;
-    return;
-  }
-  const groupOf = new Map();
-  state.result.groups.forEach((g) => g.children.forEach((c) => groupOf.set(c.id, g)));
-
-  const eligible = teamAdults().filter((a) => a.childIds.some((id) => groupOf.has(id)))
-    .sort((a, b) => a.lastName.localeCompare(b.lastName));
-  if (!eligible.length) {
-    wrap.innerHTML = head + `<div class="alert warn">Nobody is placed yet.</div>`;
-    return;
-  }
-  if (!parentId || !eligible.some((a) => a.id === parentId)) {
-    parentId = (eligible.find((a) => a.id === SHARED_PARENT.parent.id) || eligible[0]).id;
-  }
-  const parent = BY_ID.get(parentId);
-  const kids = parent.childIds.map((id) => BY_ID.get(id)).filter((k) => k && groupOf.has(k.id));
-
-  const byGroup = new Map();
+/* every upcoming published event across the teams this person's children are in */
+function familyEvents(me) {
+  const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
+  const map = new Map();
   kids.forEach((k) => {
-    const g = groupOf.get(k.id);
-    if (!byGroup.has(g.id)) byGroup.set(g.id, { g, mine: [] });
-    byGroup.get(g.id).mine.push(k);
+    const t = TEAM_BY_ID.get(k.teamId);
+    if (!t) return;
+    t.events.forEach((e) => {
+      if (!e.published || e.past) return;
+      if (!map.has(e.id)) map.set(e.id, { event: e, team: t, kids: [] });
+      map.get(e.id).kids.push(k);
+    });
   });
-
-  let cards = [...byGroup.values()].map(({ g, mine }) => {
-    const mineIds = new Set(mine.map((k) => k.id));
-    const others = g.children.filter((c) => !mineIds.has(c.id)).slice().sort((a, b) => a.name.localeCompare(b.name));
-    return `
-      <div class="pcard">
-        <div class="ev">${t.name} &middot; ${e.dayName} ${e.shortDate}, ${e.time}</div>
-        <div class="grp">${g.name}</div>
-        <div class="sub">${mine.map((k) => esc(k.name)).join(" and ")} &middot; ${esc(e.venue)}</div></div>
-      <div class="pcard"><h4>Coaching this group</h4>
-        <ul>${g.coaches.length ? g.coaches.map((c) => `<li class="${c.id === parent.id ? "me" : ""}">${esc(c.name)}${c.id === parent.id ? " (you)" : ""}</li>`).join("") : "<li>Not yet assigned</li>"}</ul></div>
-      <div class="pcard"><h4>Also in ${g.name} (${others.length})</h4>
-        <ul>${others.map((c) => `<li>${esc(c.name)}</li>`).join("")}</ul></div>`;
-  }).join("");
-
-  /* a parent with a child in another age group sees that one too */
-  let crossNote = "";
-  const elsewhere = parent.childIds.map((id) => BY_ID.get(id)).filter((k) => k && k.teamId !== t.id);
-  elsewhere.forEach((k) => {
-    const ot = TEAM_BY_ID.get(k.teamId), oe = nextEventFor(ot);
-    const alloc = allocationFor(ot, oe);
-    const g = alloc && alloc.groups.find((x) => x.children.some((c) => c.id === k.id));
-    cards += `
-      <div class="pcard" style="border-left:3px solid var(--gold)">
-        <div class="ev">${ot.name} &middot; ${oe.dayName} ${oe.shortDate}, ${oe.time}</div>
-        <div class="grp">${g ? g.name : "Not placed"}</div>
-        <div class="sub">${esc(k.name)} &middot; ${esc(oe.venue)}</div>
-        ${g ? `<div class="sub" style="margin-top:7px">Coached by ${esc(g.coaches.map((c) => c.name).join(", ") || "not yet assigned")}</div>` : ""}
-      </div>`;
-    crossNote = `<div class="note" style="margin-top:9px"><b>${esc(parent.firstName)} has a child in each age group.</b>
-      One login shows both, so ${esc(k.name)} in ${ot.name} appears in the same list as ${esc(kids.map((x) => x.firstName).join(" and "))}.</div>`;
-  });
-
-  wrap.innerHTML = head + `
-    <div class="parent-wrap">
-      <div>
-        <div class="card card-pad" style="margin-bottom:14px">
-          <div class="sub" style="margin-bottom:8px">Viewing as</div>
-          <select class="pick" id="parent-pick">
-            ${eligible.map((a) => `<option value="${a.id}" ${a.id === parentId ? "selected" : ""}>
-              ${esc(a.name)}${a.coachIn[t.id] ? " — coach" : ""} (${esc(a.childIds.map((id) => BY_ID.get(id)).filter(Boolean).map((c) => c.firstName).join(", "))})
-            </option>`).join("")}
-          </select>
-        </div>
-        <div class="card card-pad">
-          <h3 style="font-size:15px;margin-bottom:10px">What is deliberately missing</h3>
-          <div class="note" style="margin-bottom:9px"><b>No ability ratings.</b> Not for other children and not for their own.</div>
-          <div class="note" style="margin-bottom:9px"><b>No schools.</b> A parent sees their own child's school because they entered it, but never another child's.</div>
-          <div class="note"><b>No decline reasons</b> and no sight of who did not respond.</div>
-          ${kids.map((k) => `<div class="note" style="margin-top:9px">${esc(k.firstName)}'s school is <b>${esc(k.school)}</b> &mdash; shown only because ${esc(parent.firstName)} entered it.</div>`).join("")}
-          ${crossNote}
-        </div>
-      </div>
-      <div class="phone"><div class="screen">
-        <div class="pbar"><img src="Kilmacud_crokes_logo.png" alt="">Kilmacud Crokes</div>
-        <div class="pbody">${cards}</div>
-      </div></div>
-    </div>`;
-
-  el("parent-pick").onchange = (e2) => { parentId = Number(e2.target.value); renderParent(); };
+  return [...map.values()].sort((a, b) =>
+    a.event.date.localeCompare(b.event.date) || a.event.time.localeCompare(b.event.time));
 }
 
-/* ---------------- shell ---------------- */
+function familyAnswer(e, personId, value, reason) {
+  e.status.set(personId, value);
+  if (value === "declined" && reason) e.reason.set(personId, reason);
+  else e.reason.delete(personId);
+  state.familyDeclining = null;
+  state.familyDraft = "";
+  const who = BY_ID.get(personId);
+  if (isAdmin(signedIn()) && e.id === state.eventId) {
+    rerun(true, who.name + " " + (value === "accepted" ? "accepted" : "declined") + " on their own invitation");
+  }
+  renderAll();
+}
+
+function answerBlock(entry, person, label, note) {
+  const e = entry.event;
+  const st = e.status.get(person.id) || "none";
+  const declining = state.familyDeclining === person.id;
+  const me = signedIn();
+
+  let control;
+  if (declining) {
+    control = `<div style="width:100%">
+        <textarea class="reasonbox" id="fr-${person.id}" placeholder="A quick line is enough">${esc(state.familyDraft)}</textarea>
+        <div class="sub" style="margin:7px 0 9px">Only the team admin sees this.</div>
+        <div class="answer-row">
+          <button class="btn primary" data-send="${person.id}" data-ev="${e.id}">Send</button>
+          <button class="btn" data-cancel-decline="1">Back</button>
+        </div></div>`;
+  } else if (st === "none") {
+    control = `<div class="answer-row">
+        <button class="btn choice" data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
+        <button class="btn choice" data-no="${person.id}">Can't make it</button></div>`;
+  } else {
+    control = `<div class="answer-row">
+        <button class="btn" data-change="${person.id}" data-ev="${e.id}">Change answer</button></div>`;
+  }
+
+  const sq = st === "accepted" ? squadForChild(e, person.id) : null;
+  let squadBox = "";
+  if (person.type === "child" && st === "accepted") {
+    if (sq) {
+      const coaches = sq.coachIds.map((id) => BY_ID.get(id)).filter(Boolean);
+      const others = sq.childIds.filter((id) => id !== person.id)
+        .map((id) => BY_ID.get(id)).filter(Boolean)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      squadBox = `<div class="squad-box">
+          <div class="sq">${esc(sq.name)}</div>
+          <h5>Coaches</h5>
+          <div class="namelist">${coaches.length
+            ? coaches.map((c) => `<span class="${c.id === me.id ? "me" : ""}">${esc(c.name)}${c.id === me.id ? " (you)" : ""}</span>`).join("")
+            : "<span>Not yet assigned</span>"}</div>
+          <h5>Also in this squad (${others.length})</h5>
+          <div class="namelist">${others.map((c) => `<span>${esc(c.name)}</span>`).join("")}</div>
+        </div>`;
+    } else {
+      squadBox = `<div class="pending">Squads for this session haven't been published yet.
+        You'll see ${esc(person.firstName)}'s squad and coaches here as soon as they are.</div>`;
+    }
+  }
+
+  const why = st === "declined" && e.reason.get(person.id)
+    ? `<div class="pending">You said: ${esc(e.reason.get(person.id))}</div>` : "";
+
+  return `<div class="kid-block">
+      <div class="kid-head">
+        <span class="who">${esc(label)}</span>
+        ${pill(st)}
+      </div>
+      ${note ? `<div class="sub" style="margin:-4px 0 10px">${note}</div>` : ""}
+      ${control}${why}${squadBox}
+    </div>`;
+}
+
+function renderFamily() {
+  const me = signedIn();
+  const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
+  const entries = familyEvents(me);
+
+  const cards = entries.length ? entries.map((entry) => {
+    const e = entry.event, t = entry.team;
+    const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
+      .map((k) => answerBlock(entry, k, k.name, "")).join("")
+      + (me.coachIn[t.id] ? answerBlock(entry, me, "You, coaching", "") : "");
+
+    return `<div class="ev-card ${e.cancelled ? "is-cancelled" : ""}">
+        <div class="ev-top">
+          <div class="ev-when"><div class="dd">${e.date.slice(8)}</div><div class="mm">${e.shortDate.split(" ")[1]}</div></div>
+          <div class="ev-what">
+            <h3>${esc(eventTitle(e))}</h3>
+            <div class="line">${t.name} &middot; ${e.dayName} &middot; <b>${e.time}&ndash;${e.endTime}</b>, meet at ${e.meetTime}</div>
+            <div class="line">${esc(e.venue)}${e.away ? " &middot; away" : ""}</div>
+            <div class="line dl-line ${deadlineState(e).closed ? "dl-closed" : "dl-open"}">
+              ${deadlineState(e).closed
+                ? "Responses closed " + fmtWhen(deadlineFor(e)) + " &mdash; you can still change your answer"
+                : "Answers due by " + fmtWhen(deadlineFor(e)) + " &middot; " + deadlineState(e).label.replace("Answers due ", "")}
+            </div>
+          </div>
+        </div>
+        ${e.cancelled ? `<div class="kid-block"><div class="alert stop" style="margin:0">
+          <b>Cancelled.</b> ${esc(e.cancelled)}</div></div>` : blocks}
+      </div>`;
+  }).join("") : `<div class="card card-pad">Nothing coming up. You'll get an email when the next session is published.</div>`;
+
+  const childCards = kids.map((k) => `
+    <div class="childrow">
+      <div class="cn">${esc(k.name)}</div>
+      <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${esc(k.school)}</div>
+      <button class="btn tiny" style="margin-top:7px" data-fedit="${k.id}">Change school</button>
+    </div>`).join("");
+
+  const outstanding = entries.reduce((n, entry) => {
+    let c = entry.kids.filter((k) => (entry.event.status.get(k.id) || "none") === "none").length;
+    if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") c++;
+    return n + c;
+  }, 0);
+  const coachesSomewhere = TEAMS.some((t) => me.coachIn[t.id]);
+
+  el("view-family").innerHTML = `
+    <div class="page-head">
+      <div><h2>Your family</h2>
+        <div class="count">${esc(me.name)} &middot; ${esc(kids.map((k) => k.firstName).join(" and "))}</div></div>
+    </div>
+    <div class="alert ${outstanding ? "warn" : "ok"}" style="margin-bottom:16px">
+      ${outstanding
+        ? `<b>${plural(outstanding, "answer", "answers")} still to give.</b> Anything unanswered is shown below with
+           Yes and Can't make it against it.`
+        : `<b>Everything answered.</b> You can change any answer below, at any time.`}
+    </div>
+    ${coachesSomewhere ? `<div class="note" style="margin-bottom:16px">You are asked about coaching separately
+      from your children, because you can be unavailable on a night they still attend. Both answers appear on
+      each session below.</div>` : ""}
+    <div class="family">
+      <div>
+        <h3 style="font-size:15px;margin-bottom:11px">Coming up</h3>
+        ${cards}
+      </div>
+      <div>
+        <div class="side-card">
+          <h3>Your children</h3>
+          ${childCards}
+        </div>
+        <div class="side-card">
+          <h3>Your details</h3>
+          <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
+          <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
+          <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
+          <button class="btn tiny" style="margin-top:11px" data-fedit="${me.id}">Edit your details</button>
+        </div>
+      </div>
+    </div>
+    ${familyEditModal()}`;
+
+  wireFamily();
+}
+
+function familyEditModal() {
+  if (!state.editingId || state.editScope !== "family") return "";
+  const p = BY_ID.get(state.editingId);
+  const err = state.editError ? `<div class="field"><div class="err">${esc(state.editError)}</div></div>` : "";
+  const actions = `<div class="modal-actions">
+      <button class="btn" id="f-cancel">Cancel</button>
+      <button class="btn primary" id="f-save">Save</button></div>`;
+
+  if (p.type === "child") {
+    const t = TEAM_BY_ID.get(p.teamId);
+    const known = t.schools.includes(p.school);
+    return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Change school">
+      <h3>${esc(p.firstName)}'s school</h3>
+      <div class="msub">${esc(t.name)}</div>
+      <div class="field"><label for="f-school">School</label>
+        <select id="f-school">
+          ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === p.school ? "selected" : ""}>${esc(sc)}</option>`).join("")}
+          <option value="__other" ${known ? "" : "selected"}>Other&hellip;</option>
+        </select>
+        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.school)}" ${known ? "hidden" : ""}>
+        <div class="hint">The club uses this to keep school friends together at training. No other parent ever sees it.</div>
+      </div>
+      ${err}${actions}</div></div>`;
+  }
+
+  return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Your details">
+    <h3>Your details</h3>
+    <div class="msub">These are yours to change.</div>
+    <div class="row2">
+      <div class="field"><label for="f-first">First name</label><input id="f-first" value="${esc(p.firstName)}"></div>
+      <div class="field"><label for="f-last">Surname</label><input id="f-last" value="${esc(p.lastName)}"></div>
+    </div>
+    <div class="field"><label for="f-email">Email address</label><input id="f-email" type="email" value="${esc(p.email)}">
+      <div class="hint">Where invitations and reminders go.</div></div>
+    <div class="field"><label for="f-phone">Phone number</label><input id="f-phone" value="${esc(p.phone || "")}">
+      <div class="hint">Optional. Only a team admin can see it, and only to ring you.</div></div>
+    ${err}${actions}</div></div>`;
+}
+
+function wireFamily() {
+  const root = el("view-family");
+  const evById = (id) => TEAMS.flatMap((t) => t.events).find((e) => e.id === id);
+
+  root.querySelectorAll("[data-yes]").forEach((b) =>
+    b.onclick = () => familyAnswer(evById(b.dataset.ev), Number(b.dataset.yes), "accepted"));
+  root.querySelectorAll("[data-no]").forEach((b) =>
+    b.onclick = () => { state.familyDeclining = Number(b.dataset.no); state.familyDraft = ""; renderFamily(); });
+  root.querySelectorAll("[data-cancel-decline]").forEach((b) =>
+    b.onclick = () => { state.familyDeclining = null; renderFamily(); });
+  root.querySelectorAll("[data-send]").forEach((b) =>
+    b.onclick = () => {
+      const id = Number(b.dataset.send);
+      familyAnswer(evById(b.dataset.ev), id, "declined", el("fr-" + id).value.trim());
+    });
+  root.querySelectorAll("[data-change]").forEach((b) =>
+    b.onclick = () => {
+      const e = evById(b.dataset.ev), id = Number(b.dataset.change);
+      e.status.set(id, "none"); e.reason.delete(id);
+      renderAll();
+    });
+  const box = root.querySelector(".reasonbox");
+  if (box) box.oninput = (ev2) => { state.familyDraft = ev2.target.value; };
+
+  root.querySelectorAll("[data-fedit]").forEach((b) =>
+    b.onclick = () => {
+      state.editingId = Number(b.dataset.fedit); state.editScope = "family"; state.editError = "";
+      renderFamily();
+    });
+
+  const back = el("edit-backdrop");
+  if (!back || state.editScope !== "family") return;
+  const close = () => { state.editingId = null; state.editError = ""; renderFamily(); };
+  back.onclick = (e2) => { if (e2.target === back) close(); };
+  el("f-cancel").onclick = close;
+  document.onkeydown = (e2) => { if (e2.key === "Escape" && state.editingId) close(); };
+
+  const schoolSel = el("f-school");
+  if (schoolSel) schoolSel.onchange = () => {
+    const other = el("f-school-other");
+    other.hidden = schoolSel.value !== "__other";
+    if (!other.hidden) other.focus();
+  };
+
+  el("f-save").onclick = () => {
+    const p = BY_ID.get(state.editingId);
+    if (p.type === "child") {
+      const sel = el("f-school").value;
+      const school = sel === "__other" ? el("f-school-other").value.trim() : sel;
+      if (!school) { state.editError = "Pick a school, or type the name."; return renderFamily(); }
+      p.school = school;
+    } else {
+      const first = el("f-first").value.trim(), last = el("f-last").value.trim();
+      const email = el("f-email").value.trim();
+      if (!first || !last) { state.editError = "A first name and a surname are both needed."; return renderFamily(); }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        state.editError = "That email address doesn't look right."; return renderFamily();
+      }
+      p.firstName = first; p.lastName = last; p.name = first + " " + last;
+      p.email = email; p.phone = el("f-phone").value.trim();
+    }
+    state.editingId = null; state.editError = "";
+    renderAll();
+  };
+}
+
+/* ---------------- sign in, and the chrome that depends on it ---------------- */
+
+const TABS = [
+  { id: "family", label: "My family", admin: false },
+  { id: "calendar", label: "Calendar", admin: true },
+  { id: "members", label: "Members", admin: true },
+  { id: "invite", label: "Invitation", admin: true },
+  { id: "groups", label: "Squads", admin: true }
+];
 
 function showView(name) {
-  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.view === name));
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   window.scrollTo(0, 0);
 }
-document.querySelectorAll(".tabs button").forEach((b) => { b.onclick = () => showView(b.dataset.view); });
 
-const tp = el("team-pick");
-tp.innerHTML = TEAMS.map((t) => `<option value="${t.id}">${t.name}</option>`).join("");
-tp.onchange = () => { parentId = null; selectTeam(tp.value); renderAll(); };
+function renderChrome() {
+  const me = signedIn();
+  const admin = isAdmin(me);
+  const tabs = TABS.filter((t) => admin || !t.admin);
+  const order = admin ? tabs.slice(1).concat(tabs[0]) : tabs;
+
+  el("tabs").innerHTML = order.map((t, i) =>
+    `<button role="tab" data-view="${t.id}" aria-selected="${i === 0}">${t.label}</button>`).join("");
+  el("tabs").hidden = order.length < 2;
+  el("tabs").querySelectorAll("button").forEach((b) => { b.onclick = () => showView(b.dataset.view); });
+
+  const picker = el("team-pick");
+  const mine = adminTeamsFor(me);
+  picker.hidden = mine.length < 2;
+  picker.innerHTML = mine.map((t) => `<option value="${t.id}">${t.name}</option>`).join("");
+  if (mine.length) picker.value = state.teamId;
+
+  showView(order[0].id);
+}
+
+function signInAs(id) {
+  state.signedInId = id;
+  const me = signedIn();
+  const home = (adminTeamsFor(me)[0] || teamsFor(me)[0] || TEAMS[0]).id;
+  selectTeam(home);
+  el("signin").hidden = true;
+  el("app").hidden = false;
+  renderChrome();
+  renderAll();
+}
+
+function signOut() {
+  state.signedInId = null;
+  state.editingId = null;
+  state.familyDeclining = null;
+  el("app").hidden = true;
+  el("signin").hidden = false;
+  window.scrollTo(0, 0);
+}
+
+el("personas").innerHTML = PERSONAS.map((p) => {
+  const a = BY_ID.get(p.id);
+  const roles = adminTeamsFor(a).map((t) => ROLE_LABEL[a.roleIn[t.id]])
+    .concat(TEAMS.filter((t) => a.coachIn[t.id]).map((t) => "Coach, " + t.name));
+  const kids = a.childIds.map((id) => BY_ID.get(id))
+    .map((c) => c.firstName + " (" + TEAM_BY_ID.get(c.teamId).shortName + ")").join(", ");
+  return `<button class="persona" data-signin="${p.id}">
+      <div class="pname">${esc(a.name)}</div>
+      <div class="prole">${esc(roles.length ? [...new Set(roles)].join(" · ") : "Parent")}</div>
+      <div class="pblurb">${esc(p.blurb)}<br>Children: ${esc(kids)}</div>
+    </button>`;
+}).join("");
+
+el("personas").querySelectorAll("[data-signin]").forEach((b) =>
+  b.onclick = () => signInAs(Number(b.dataset.signin)));
+
+el("sign-out").onclick = signOut;
+
+el("team-pick").onchange = () => { selectTeam(el("team-pick").value); renderAll(); };
 
 el("theme-toggle").onclick = () => {
   const now = document.documentElement.getAttribute("data-theme");
@@ -1001,5 +1374,9 @@ el("theme-toggle").onclick = () => {
   document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
 };
 
-selectTeam("u9");
-renderAll();
+/* squads are already out for the next session of each team, so a parent signing in
+   has something to look at; later sessions are left unpublished on purpose */
+TEAMS.forEach((t) => {
+  const e = nextEventFor(t);
+  if (e && e.published && !e.cancelled) publishSquads(e, allocationFor(t, e));
+});
