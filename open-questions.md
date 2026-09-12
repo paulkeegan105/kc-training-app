@@ -260,6 +260,7 @@ This is about the event having happened, not about the deadline. **Item 53's dec
 
 **Decided.** A row of chips sits directly above the list: All, then one chip per child. It filters the list below it and nothing else — it is not in the header, it is not tabs, and it does not touch the sidebar or the counts. It appears only when the signed-in adult has more than one child. When it appears, the children's names come out of the subtitle under "Your family", because the chips already carry them; with one child the subtitle keeps the name.
 
+**Confirmed, not changed.** A usability review found the implementation had drifted from this: the chips were filtering the outstanding-answers count as well as the list, so a parent filtered to one child lost any sign that the other child owed an answer — and an absent banner reads as "nothing outstanding". The code was corrected to count from everything owed. The decision above stands exactly as written: the chips filter the list and nothing else. A filter changes what is shown, never what is owed.
 
 **62. Parent-facing rows repeated the age group.** Every row read "Cian · Under 9 · Wednesday · 18:30–19:45". The age group was doing no work: a parent knows which age group their own child is in, and where they have two children the child's name already distinguishes the rows.
 
@@ -309,6 +310,20 @@ Sorting is collated so fadas order with their base letter — Áine with the As,
 **Decided.** Purple means interactive and nothing else: links, buttons, the selected state of a control, the focus ring. Emphasis that is not interactive gets weight, a neutral colour, or a background instead. The deadline line was changed to neutral text at a heavier weight, which is what it should have been.
 
 It is a cheap rule to keep and an expensive one to lose. A parent scanning an event card should be able to tell what is tappable without tapping to find out, and a colour that sometimes means "act on this" and sometimes means "read this" tells them nothing. Worth checking against on any new screen rather than after the fact, as happened here.
+
+
+**70. The outstanding-answers banner said how many but not who.** It read "2 answers still to give in the next 7 days" — a number with no way in. For a parent with two children in two age groups, the number alone does not say whose answer is missing, and the seven-day window was stated at the expense of the thing that would actually help.
+
+**Decided.** The banner names the child and when: "1 answer still to give, for Liam, today", or "2 answers still to give. The first is Liam, today." Exactly one name either way, however many children — the count says how much is owed, the name says where to start, and listing the rest is what the list below is for. The seven-day scope still decides what gets counted and is no longer stated.
+
+Following it clears any child filter in the way, opens the earliest event it counted, and puts the keyboard focus there. A prompt that points at something a filter is hiding is worse than no prompt.
+
+
+**71. Past events looked exactly like the ones still to answer.** Once the parent's list became a full season calendar, a finished session in August carried the same raised card, the same accent and the same weight as tomorrow's match. The list gave no shape to the difference between what has happened and what is being asked of you.
+
+**Decided.** Past events recede: no raised surface, no accent bar, a quieter title. They keep their place in the list, their answers and their squads — nothing is hidden, and a parent can still look back at any of it.
+
+What is deliberately **not** being decided here is which element leads a row, or how training and matches should differ from each other. Both came up in the same review and both are theories about how a parent scans a list, which the trial will settle better than an argument will.
 
 ## Things I'd have to invent to build it
 

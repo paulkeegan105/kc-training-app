@@ -246,7 +246,17 @@ A cancelled event drops the answers-due line, the venue, the meet time and the w
 
 An event that has started takes no more answers. The Yes and Can't make it buttons go, and so does Change answer. Whatever was answered still shows, with who answered and when. This is about the event having happened, not about the deadline: the deadline never locks anything (see the response deadline above).
 
-A finished event never says squads haven't been published yet. If squads were published it shows them; if they never were it says nothing, because there is nothing left to wait for.
+A finished event never says squads haven't been published yet. If squads were published it shows them; if they never were it says nothing, because there is nothing left to wait for. An unanswered finished event says so where its buttons would have been — "This session has finished" — rather than leaving a parent to work out why it cannot be answered.
+
+Past events recede. They keep their place in the list and lose their emphasis: no raised surface, no accent, a quieter title. The list should read as things to act on and things that already happened.
+
+### When a child is not in a squad
+
+There are three reasons a parent might not see a squad, and the app says which:
+
+- Squads have not been published yet — so wait, and it will appear here.
+- Squads were published and this child was not in one, because their answer arrived afterwards. Say exactly that, say when squads went out, and tell the parent to let a coach know the child is coming. **Never tell this parent to wait**: a parent who is told a squad is still coming, when it went out without their child in it, can arrive at a pitch expecting a team.
+- The session has finished and squads were never published — say nothing.
 
 ### Chasing answers
 
@@ -254,7 +264,9 @@ The answers-due line appears only while that person's answer is outstanding. Onc
 
 Where the deadline has passed and the person never answered, the line says responses have closed and they can still **answer** — not that they can still change their answer, because there is no answer to change. Where an answer exists, nothing is shown at all.
 
-The count of answers still to give covers the next seven days, not the season: "N answers still to give in the next 7 days." It counts only events that can still be answered, so a past event that was never answered drops out of it. The count is itself the way to reach what it counts: following it opens the earliest event it counted.
+The count of answers still to give covers the next seven days, not the season. It names the child and when: "1 answer still to give, for Liam, today", or where there is more than one, "2 answers still to give. The first is Liam, today." Exactly one name either way, however many children there are — the count says how much is owed and the name says where to start, and listing the rest belongs in the list, not the banner.
+
+It counts only events that can still be answered, so a past event that was never answered drops out of it. It counts from **everything owed, not from the filtered list**: a child filter changes what is shown, never what is owed. The count is itself the way to reach what it counts — following it clears any filter in the way, opens the earliest event it counted, and puts the keyboard there.
 
 Outside that window there is no count and no banner. The row statuses carry it, which is what they are for. **This changes what is shown, not what can be answered.** Nothing locks, and a parent can answer any event at any distance, from its own row.
 
@@ -262,9 +274,19 @@ There is no standing "everything answered" banner. A brief confirmation appears 
 
 ### Changing an answer
 
-Change answer opens the choice. It shows both options with the current answer already selected, and **writes nothing until the parent picks one**. A parent who taps it and walks away has changed nothing, and their child is still down as they were. It is not a dropdown, and it never clears the answer as a step on the way to replacing it.
+Change answer opens the choice. It shows both options with the current answer already selected, alongside a way out that keeps the answer as it stands, and **writes nothing until the parent picks one**. A parent who taps it and walks away has changed nothing, and their child is still down as they were. It is not a dropdown, and it never clears the answer as a step on the way to replacing it.
+
+Where a school is waiting on a Club Admin, the dialog says so as plainly as the list does, and says what it means meanwhile: that the child is treated as having no school when squads are worked out. A school can also be set back to not recorded, because a parent who picked the wrong one needs a way back.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
+
+### Forms and dialogs
+
+A dialog takes focus when it opens, keeps Tab inside itself while it is open, and hands focus back to the control that opened it when it closes.
+
+A validation failure keeps what the person typed. Re-rendering a form from the stored record throws away every other edit they made, silently, and they may not notice until later. The message goes under the field it is about and that field is marked, so with four fields on screen nobody has to work out which one is wrong.
+
+Saving confirms the same way answering does, with the same brief confirmation. A save that closes a dialog and says nothing leaves the person wondering whether it took.
 
 ## What the header carries
 

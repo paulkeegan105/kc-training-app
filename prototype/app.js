@@ -36,6 +36,9 @@ const state = {
   familyShowEarlier: false,
   familyChild: "all",
   familyEditing: null,
+  editDraft: null,
+  editErrorField: null,
+  editReturnTo: null,
   teamId: "u9",
   eventId: null,
   settings: null,
@@ -140,6 +143,7 @@ function publishSquads(e, result) {
     coachIds: g.coaches.map((c) => c.id)
   }));
   e.squadsPublished = true;
+  e.squadsPublishedAt = NOW;
 }
 
 function squadForChild(e, childId) {
@@ -1073,8 +1077,8 @@ function toast(message) {
   t.setAttribute("role", "status");
   t.textContent = message;
   host.appendChild(t);
-  setTimeout(() => t.classList.add("out"), 2600);
-  setTimeout(() => t.remove(), 3300);
+  setTimeout(() => t.classList.add("out"), 5000);
+  setTimeout(() => t.remove(), 5800);
 }
 
 /* "base" sensitivity puts Áine with the As rather than after Z */
@@ -1104,9 +1108,16 @@ function squadPanel(entry, person) {
   const e = entry.event, me = signedIn();
   const sq = squadForChild(e, person.id);
   if (!sq) {
-    // a finished session either published squads or never will; either way there is
-    // nothing to promise, so say nothing
-    if (hasStarted(e)) return "";
+    /* Three different situations, and telling them apart matters: a parent told to
+       wait for a squad that already went out without their child in it can turn up
+       at a pitch expecting a team. */
+    if (e.squadsPublished) {
+      return `<div class="pending"><b>${esc(person.firstName)} isn't in a squad for this session.</b>
+        Squads went out${e.squadsPublishedAt ? " on " + fmtDay(e.squadsPublishedAt) : ""}, before this answer
+        came in, so ${esc(person.firstName)} wasn't included. Tell a coach ${esc(person.firstName)} is coming
+        and they'll be put into one on the night.</div>`;
+    }
+    if (hasStarted(e)) return "";      // finished, and squads were never published
     return `<div class="pending">Squads for this session haven't been published yet.
       You'll see ${esc(person.firstName)}'s squad and coaches here as soon as they are.</div>`;
   }
@@ -1156,15 +1167,19 @@ function answerBlock(entry, person, label) {
   const choosing = st === "none" || state.familyEditing === editKey;
 
   let control = "";
-  if (!started) {
-    control = choosing
-      ? `<span class="answer-row" role="group" aria-label="Answer for ${esc(label)}">
-          <button class="btn choice ${st === "accepted" ? "is-selected" : ""}" aria-pressed="${st === "accepted"}"
-            data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
-          <button class="btn choice ${st === "declined" ? "is-selected" : ""}" aria-pressed="${st === "declined"}"
-            data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`
-      : `<span class="answer-row">
-          <button class="btn" data-change="${editKey}">Change answer</button></span>`;
+  if (started) {
+    control = `<span class="finished-note">This session has finished.</span>`;
+  } else if (choosing) {
+    control = `<span class="answer-row" role="group" aria-label="Answer for ${esc(label)}">
+        <button class="btn choice ${st === "accepted" ? "is-selected" : ""}" aria-pressed="${st === "accepted"}"
+          data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
+        <button class="btn choice ${st === "declined" ? "is-selected" : ""}" aria-pressed="${st === "declined"}"
+          data-no="${person.id}" data-ev="${e.id}">Can't make it</button>
+        ${st === "none" ? "" : `<button class="linkbtn" data-cancel-change="1">Keep ${
+          st === "accepted" ? "Yes, coming" : "Can't make it"}</button>`}</span>`;
+  } else {
+    control = `<span class="answer-row">
+        <button class="btn" data-change="${editKey}">Change answer</button></span>`;
   }
 
   return `<div class="kid-block">
@@ -1176,7 +1191,6 @@ function answerBlock(entry, person, label) {
       </div>
       ${answeredLine(e, person.id)}
       ${deadlineLine(e, person.id)}
-      ${person.type === "child" && st === "accepted" ? squadPanel(entry, person) : ""}
     </div>`;
 }
 
@@ -1199,7 +1213,12 @@ function renderFamily() {
   const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
   const all = familyEvents(me);
 
-  const filtered = state.familyChild && state.familyChild !== "all"
+  // a chip left over from another account filters on a child this adult has never met
+  if (state.familyChild && state.familyChild !== "all"
+      && !kids.some((k) => k.id === Number(state.familyChild))) {
+    state.familyChild = "all";
+  }
+  const filtered = state.familyChild !== "all"
     ? all.filter((x) => x.kids.some((k) => k.id === Number(state.familyChild)))
     : all;
 
@@ -1230,11 +1249,18 @@ function renderFamily() {
     // a cancelled event keeps the date, day, time range and opposition, and nothing else
     const times = (e.meetTime && !e.cancelled ? "Meet " + e.meetTime + " &middot; " : "")
       + e.time + "&ndash;" + e.endTime;
+    const rel = relativeDay(eventStart(e));
+    const dayWord = (rel === "today" || rel === "tomorrow")
+      ? rel.charAt(0).toUpperCase() + rel.slice(1) : e.dayName;
     const who = entry.kids.map((k) => k.firstName).join(" and ");
 
-    const blocks = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name))
-      .map((k) => answerBlock(entry, k, k.name)).join("")
-      + (me.coachIn[t.id] ? answerBlock(entry, me, "You, coaching") : "");
+    /* every answer for this event together, so a coaching parent sees their own beside
+       their child's, with the squad cards under them rather than between them */
+    const kidsHere = entry.kids.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const blocks = kidsHere.map((k) => answerBlock(entry, k, k.name)).join("")
+      + (me.coachIn[t.id] ? answerBlock(entry, me, "You") : "")
+      + kidsHere.filter((k) => (e.status.get(k.id) || "none") === "accepted")
+          .map((k) => squadPanel(entry, k)).join("");
 
     return `<div class="fev ${open ? "is-open" : ""} ${started ? "is-past" : ""} ${e.cancelled ? "is-cancelled" : ""}"
         id="fev-${e.id}">
@@ -1242,7 +1268,7 @@ function renderFamily() {
         <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
         <span class="fev-main">
           <span class="fev-title">${esc(eventTitle(e))}</span>
-          <span class="fev-sub"><b>${esc(who)}</b> &middot; ${e.dayName} &middot; ${times}</span>
+          <span class="fev-sub"><b>${esc(who)}</b> &middot; ${dayWord} &middot; ${times}</span>
         </span>
         <span class="fev-tags ${tagClass}">${chips}</span>
       </button>
@@ -1274,9 +1300,10 @@ function renderFamily() {
 
   const body = filtered.length
     ? earlierBlock + renderMonths(rest, lastEarlierMonth)
-    : `<div class="card card-pad">Nothing on the calendar for ${state.familyChild && state.familyChild !== "all"
-        ? esc(BY_ID.get(Number(state.familyChild)).firstName) : "your family"} yet.
-        You'll get an email when the next session is published.</div>`;
+    : `<div class="card card-pad">Nothing on the calendar for ${(() => {
+          const c = state.familyChild !== "all" ? BY_ID.get(Number(state.familyChild)) : null;
+          return c && kids.some((k) => k.id === c.id) ? esc(c.firstName) : "your family";
+        })()} yet. You'll get an email when the next session is published.</div>`;
 
   const childCards = kids.map((k) => `
     <div class="childrow">
@@ -1287,16 +1314,26 @@ function renderFamily() {
       </div>
     </div>`).join("");
 
-  /* Only what is coming up this week is worth nagging about. Nothing locks and nothing
-     is hidden: an event further out can still be answered, from its own row. */
+  /* Only what is coming up this week is worth nagging about. Counted from everything,
+     not from the filtered list: a filter changes what is shown, not what is owed. */
   const weekEnd = new Date(NOW.getTime() + 7 * 86400000);
   const owed = [];
-  answerable.filter((entry) => eventStart(entry.event) <= weekEnd).forEach((entry) => {
-    entry.kids.forEach((k) => { if ((entry.event.status.get(k.id) || "none") === "none") owed.push(entry); });
-    if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") owed.push(entry);
-  });
+  all.filter((entry) => !hasStarted(entry.event) && !entry.event.cancelled
+      && eventStart(entry.event) <= weekEnd)
+    .forEach((entry) => {
+      entry.kids.forEach((k) => {
+        if ((entry.event.status.get(k.id) || "none") === "none") owed.push({ entry, person: k });
+      });
+      if (me.coachIn[entry.team.id] && (entry.event.status.get(me.id) || "none") === "none") {
+        owed.push({ entry, person: me });
+      }
+    });
+  owed.sort((a, b) => eventStart(a.entry.event) - eventStart(b.entry.event));
   const outstanding = owed.length;
   const firstOwed = owed[0];
+  // always exactly one name, whatever the number of children
+  const owedWho = firstOwed ? (firstOwed.person.id === me.id ? "you" : firstOwed.person.firstName) : "";
+  const owedWhen = firstOwed ? relativeDay(eventStart(firstOwed.entry.event)) : "";
 
   const chipRow = kids.length > 1
     ? `<div class="toolbar childchips" role="group" aria-label="Filter by child">
@@ -1313,10 +1350,10 @@ function renderFamily() {
     </div>
     ${outstanding
       ? `<button class="alert warn alert-action" id="goto-owed">
-          ${outstanding === 1
-            ? `<b>1 answer still to give, for ${relativeDay(eventStart(firstOwed.event))}.</b>`
-            : `<b>${outstanding} answers still to give.</b> The first is ${relativeDay(eventStart(firstOwed.event))}.`}
-          <span class="alert-go">Take me there</span></button>`
+          <span class="alert-words">${outstanding === 1
+            ? `<b>1 answer still to give, for ${esc(owedWho)}, ${owedWhen}.</b>`
+            : `<b>${outstanding} answers still to give.</b> The first is ${esc(owedWho)}, ${owedWhen}.`}</span>
+          <span class="alert-go" aria-hidden="true">&#8594;</span></button>`
       : ""}
     <div class="family">
       <div>${chipRow}${body}</div>
@@ -1344,41 +1381,98 @@ function renderFamily() {
 function familyEditModal() {
   if (!state.editingId || state.editScope !== "family") return "";
   const p = BY_ID.get(state.editingId);
-  const err = state.editError ? `<div class="field"><div class="err">${esc(state.editError)}</div></div>` : "";
+  const d = state.editDraft || {};
+  const bad = (f) => state.editErrorField === f ? " has-error" : "";
+  /* the message belongs under the field it is about, not at the foot of the dialog */
+  const errFor = (f) => state.editErrorField === f
+    ? `<div class="err" id="err-${f}">${esc(state.editError)}</div>` : "";
+  const aria = (f) => state.editErrorField === f
+    ? ` aria-invalid="true" aria-describedby="err-${f}"` : "";
   const actions = `<div class="modal-actions">
       <button class="btn" id="f-cancel">Cancel</button>
       <button class="btn primary" id="f-save">Save</button></div>`;
 
   if (p.type === "child") {
     const t = TEAM_BY_ID.get(p.teamId);
-    const known = !!p.school && t.schools.includes(p.school);
-    return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Change school">
-      <h3>${esc(p.firstName)}'s school</h3>
+    const current = d.school !== undefined ? d.school : (p.school || (p.schoolPending ? "__other" : "__none"));
+    const otherText = d.schoolOther !== undefined ? d.schoolOther : (p.schoolPending || "");
+    const isOther = current === "__other";
+    return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+      <h3 id="dlg-title">${esc(p.firstName)}'s school</h3>
       <div class="msub">${esc(t.name)}</div>
-      <div class="field"><label for="f-school">School</label>
-        <select id="f-school">
-          ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === p.school ? "selected" : ""}>${esc(sc)}</option>`).join("")}
-          <option value="__other" ${known ? "" : "selected"}>Other&hellip;</option>
+      ${p.schoolPending ? `<div class="alert warn" style="margin-bottom:14px"><b>Waiting on the club.</b>
+        You gave ${esc(p.schoolPending)}, and a Club Admin has not confirmed it yet. Until they do,
+        ${esc(p.firstName)} is treated as having no school when squads are worked out.</div>` : ""}
+      <div class="field${bad("school")}"><label for="f-school">School</label>
+        <select id="f-school"${aria("school")}>
+          ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === current ? "selected" : ""}>${esc(sc)}</option>`).join("")}
+          <option value="__other" ${isOther ? "selected" : ""}>Other&hellip;</option>
+          <option value="__none" ${current === "__none" ? "selected" : ""}>Not sure yet</option>
         </select>
-        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.schoolPending || p.school || "")}" ${known ? "hidden" : ""}>
+        <input id="f-school-other" placeholder="School name" value="${esc(otherText)}" ${isOther ? "" : "hidden"}>
+        ${errFor("school")}
         <div class="hint">The club uses this to keep school friends together at training, and no other parent ever
           sees it. If you type a school in yourself, the club will confirm it before it is used.</div>
       </div>
-      ${err}${actions}</div></div>`;
+      ${actions}</div></div>`;
   }
 
-  return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Your details">
-    <h3>Your details</h3>
+  const v = (k, fallback) => esc(d[k] !== undefined ? d[k] : fallback);
+  return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+    <h3 id="dlg-title">Your details</h3>
     <div class="msub">These are yours to change.</div>
     <div class="row2">
-      <div class="field"><label for="f-first">First name</label><input id="f-first" value="${esc(p.firstName)}"></div>
-      <div class="field"><label for="f-last">Surname</label><input id="f-last" value="${esc(p.lastName)}"></div>
+      <div class="field${bad("name")}"><label for="f-first">First name</label>
+        <input id="f-first" value="${v("firstName", p.firstName)}"${aria("name")}></div>
+      <div class="field${bad("name")}"><label for="f-last">Surname</label>
+        <input id="f-last" value="${v("lastName", p.lastName)}"></div>
     </div>
-    <div class="field"><label for="f-email">Email address</label><input id="f-email" type="email" value="${esc(p.email)}">
+    ${errFor("name")}
+    <div class="field${bad("email")}"><label for="f-email">Email address</label>
+      <input id="f-email" type="email" value="${v("email", p.email)}"${aria("email")}>
+      ${errFor("email")}
       <div class="hint">Where invitations and reminders go.</div></div>
-    <div class="field"><label for="f-phone">Phone number</label><input id="f-phone" value="${esc(p.phone || "")}">
+    <div class="field"><label for="f-phone">Phone number</label>
+      <input id="f-phone" value="${v("phone", p.phone || "")}">
       <div class="hint">Optional. Only a team admin can see it, and only to ring you.</div></div>
-    ${err}${actions}</div></div>`;
+    ${actions}</div></div>`;
+}
+
+/* open a dialog, put focus in it, trap Tab, and give focus back when it closes */
+function openFamilyDialog(id, triggerSelector) {
+  state.editingId = id;
+  state.editScope = "family";
+  state.editError = "";
+  state.editErrorField = null;
+  state.editDraft = null;
+  state.editReturnTo = triggerSelector;
+  renderFamily();
+  const first = document.querySelector("#edit-backdrop select, #edit-backdrop input");
+  if (first) first.focus();
+}
+
+function closeFamilyDialog() {
+  const back = state.editReturnTo;
+  state.editingId = null;
+  state.editError = "";
+  state.editErrorField = null;
+  state.editDraft = null;
+  state.editReturnTo = null;
+  renderFamily();
+  const trigger = back && document.querySelector(back);
+  if (trigger) trigger.focus();
+}
+
+function trapTab(e) {
+  if (e.key !== "Tab") return;
+  const modal = document.querySelector("#edit-backdrop .modal");
+  if (!modal) return;
+  const items = [...modal.querySelectorAll('a[href], button, select, input, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((n) => !n.disabled && !n.hidden && n.getBoundingClientRect().width);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 function wireFamily(firstOwed) {
@@ -1396,11 +1490,17 @@ function wireFamily(firstOwed) {
 
   const goto = el("goto-owed");
   if (goto && firstOwed) goto.onclick = () => {
-    state.familyOpenId = firstOwed.event.id;
-    if (hasStarted(firstOwed.event)) state.familyShowEarlier = true;
+    // the thing it counted may be hidden by the current filter, so clear it on the way
+    state.familyChild = "all";
+    state.familyOpenId = firstOwed.entry.event.id;
+    if (hasStarted(firstOwed.entry.event)) state.familyShowEarlier = true;
     renderFamily();
-    const node = el("fev-" + firstOwed.event.id);
-    if (node) node.scrollIntoView({ block: "center", behavior: "smooth" });
+    const node = el("fev-" + firstOwed.entry.event.id);
+    if (node) {
+      node.scrollIntoView({ block: "center", behavior: "smooth" });
+      const head = node.querySelector(".fev-head");
+      if (head) head.focus();
+    }
   };
   const evById = (id) => TEAMS.flatMap((t) => t.events).find((e) => e.id === id);
 
@@ -1416,19 +1516,21 @@ function wireFamily(firstOwed) {
   // opens the choice and writes nothing
   root.querySelectorAll("[data-change]").forEach((b) =>
     b.onclick = () => { state.familyEditing = b.dataset.change; renderFamily(); });
+  root.querySelectorAll("[data-cancel-change]").forEach((b) =>
+    b.onclick = () => { state.familyEditing = null; renderFamily(); });
 
   root.querySelectorAll("[data-fedit]").forEach((b) =>
-    b.onclick = () => {
-      state.editingId = Number(b.dataset.fedit); state.editScope = "family"; state.editError = "";
-      renderFamily();
-    });
+    b.onclick = () => openFamilyDialog(Number(b.dataset.fedit), '[data-fedit="' + b.dataset.fedit + '"]'));
 
   const back = el("edit-backdrop");
   if (!back || state.editScope !== "family") return;
-  const close = () => { state.editingId = null; state.editError = ""; renderFamily(); };
-  back.onclick = (e2) => { if (e2.target === back) close(); };
-  el("f-cancel").onclick = close;
-  document.onkeydown = (e2) => { if (e2.key === "Escape" && state.editingId) close(); };
+  back.onclick = (e2) => { if (e2.target === back) closeFamilyDialog(); };
+  el("f-cancel").onclick = closeFamilyDialog;
+  document.onkeydown = (e2) => {
+    if (!state.editingId) return;
+    if (e2.key === "Escape") closeFamilyDialog();
+    else trapTab(e2);
+  };
 
   const schoolSel = el("f-school");
   if (schoolSel) schoolSel.onchange = () => {
@@ -1439,23 +1541,43 @@ function wireFamily(firstOwed) {
 
   el("f-save").onclick = () => {
     const p = BY_ID.get(state.editingId);
+    // keep what they typed, so a validation failure never throws their work away
     if (p.type === "child") {
-      const sel = el("f-school").value;
-      const school = sel === "__other" ? el("f-school-other").value.trim() : sel;
-      if (!school) { state.editError = "Pick a school, or type the name."; return renderFamily(); }
-      setSchool(p, school, sel === "__other");
-    } else {
-      const first = el("f-first").value.trim(), last = el("f-last").value.trim();
-      const email = el("f-email").value.trim();
-      if (!first || !last) { state.editError = "A first name and a surname are both needed."; return renderFamily(); }
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        state.editError = "That email address doesn't look right."; return renderFamily();
+      const sel = el("f-school").value, other = el("f-school-other").value;
+      state.editDraft = { school: sel, schoolOther: other };
+      if (sel === "__other" && !other.trim()) {
+        state.editError = "Type the school's name, or pick one from the list.";
+        state.editErrorField = "school";
+        return renderFamily();
       }
-      p.firstName = first; p.lastName = last; p.name = first + " " + last;
-      p.email = email; p.phone = el("f-phone").value.trim();
+      if (sel === "__none") { p.school = ""; p.schoolPending = null; }
+      else setSchool(p, sel === "__other" ? other.trim() : sel, sel === "__other");
+      const label = p.school || p.schoolPending;
+      toast(p.firstName + "'s school " + (label ? "updated." : "cleared."));
+    } else {
+      const first = el("f-first").value, last = el("f-last").value,
+            email = el("f-email").value, phone = el("f-phone").value;
+      state.editDraft = { firstName: first, lastName: last, email, phone };
+      if (!first.trim() || !last.trim()) {
+        state.editError = "A first name and a surname are both needed.";
+        state.editErrorField = "name";
+        return renderFamily();
+      }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+        state.editError = "That email address doesn't look right.";
+        state.editErrorField = "email";
+        return renderFamily();
+      }
+      p.firstName = first.trim(); p.lastName = last.trim(); p.name = p.firstName + " " + p.lastName;
+      p.email = email.trim(); p.phone = phone.trim();
+      toast("Your details saved.");
     }
-    state.editingId = null; state.editError = "";
+    const back2 = state.editReturnTo;
+    state.editingId = null; state.editError = ""; state.editErrorField = null;
+    state.editDraft = null; state.editReturnTo = null;
     renderAll();
+    const trigger = back2 && document.querySelector(back2);
+    if (trigger) trigger.focus();
   };
 }
 
@@ -1509,7 +1631,13 @@ function signInAs(id) {
 function signOut() {
   state.signedInId = null;
   state.editingId = null;
-  state.familyDeclining = null;
+  state.editDraft = null;
+  state.editErrorField = null;
+  // view state belongs to the session that made it
+  state.familyChild = "all";
+  state.familyOpenId = null;
+  state.familyShowEarlier = false;
+  state.familyEditing = null;
   el("app").hidden = true;
   el("signin").hidden = false;
   window.scrollTo(0, 0);
