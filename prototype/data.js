@@ -343,6 +343,16 @@ function deadlineFor(e) { return new Date(eventStart(e).getTime() - deadlineHour
 /* the reminder hangs off the deadline, so it lands a day before answers are due */
 function reminderFor(e) { return new Date(deadlineFor(e).getTime() - 24 * 3600000); }
 
+/* "today", "tomorrow", or the day name. Inside a week a day name is unambiguous,
+   so it needs no date attached. */
+function relativeDay(d) {
+  const midnight = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  const days = Math.round((midnight(d) - midnight(NOW)) / 86400000);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return DAYS[d.getDay()];
+}
+
 function fmtDay(d) {
   return DAYS[d.getDay()].slice(0, 3) + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3);
 }

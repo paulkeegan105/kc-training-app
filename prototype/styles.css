@@ -555,7 +555,7 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 /* ---- statuses line up in their own column down the list ---- */
 .fev-tags { width: 168px; flex: none; }
 .fev-tags.one { justify-content: center; align-items: flex-end; }
-.fev-tags.stacked { flex-direction: column; align-items: flex-end; justify-content: center; gap: 4px; }
+.fev-tags.stacked { flex-direction: column; align-items: flex-end; justify-content: center; gap: 7px; }
 .fev-tags .st-pair { justify-content: flex-end; }
 
 /* ---- the earlier-events control ---- */

@@ -303,6 +303,13 @@ Sorting is collated so fadas order with their base letter — Áine with the As,
 
 **Raised and parked for v1.** Not built. Attendance tracking is explicitly out of scope, so the only thing the app could total is what was *answered*, which is not the same as what happened and would be read as if it were. A child marked accepted who did not travel would appear in the total as having been there. Totals like these also invite comparison between children, which cuts against keeping ratings admin-only.
 
+
+**69. The club's purple was being used for things you could not click.** It came up over the "Answers due by …" line on a parent's event card, which was set in the brand purple — the same colour as every link and button in the app — while being nothing but a date. Nobody had written down what the colour was for, so it had drifted into meaning "this matters" as well as "you can act on this".
+
+**Decided.** Purple means interactive and nothing else: links, buttons, the selected state of a control, the focus ring. Emphasis that is not interactive gets weight, a neutral colour, or a background instead. The deadline line was changed to neutral text at a heavier weight, which is what it should have been.
+
+It is a cheap rule to keep and an expensive one to lose. A parent scanning an event card should be able to tell what is tappable without tapping to find out, and a colour that sometimes means "act on this" and sometimes means "read this" tells them nothing. Worth checking against on any new screen rather than after the fact, as happened here.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

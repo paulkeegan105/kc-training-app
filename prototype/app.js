@@ -1313,7 +1313,9 @@ function renderFamily() {
     </div>
     ${outstanding
       ? `<button class="alert warn alert-action" id="goto-owed">
-          <b>${plural(outstanding, "answer", "answers")} still to give in the next 7 days.</b>
+          ${outstanding === 1
+            ? `<b>1 answer still to give, for ${relativeDay(eventStart(firstOwed.event))}.</b>`
+            : `<b>${outstanding} answers still to give.</b> The first is ${relativeDay(eventStart(firstOwed.event))}.`}
           <span class="alert-go">Take me there</span></button>`
       : ""}
     <div class="family">

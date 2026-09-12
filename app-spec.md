@@ -276,6 +276,10 @@ The club's crest and colours live in one place and are used from there, so chang
 
 All text meets WCAG AA contrast, 4.5:1 for body text and 3:1 for large text and interface controls, in both light and dark mode. That is a floor rather than an aspiration: a colour that cannot carry text at that contrast is used as a fill and not as text.
 
+The club's purple means one thing: you can interact with this. Links, buttons, the selected state of a control, a focus ring. Nothing that is merely important, merely current, or merely worth reading is given it. Emphasis that is not interactive gets weight, or a neutral colour, or a background — never the interactive colour.
+
+The rule earns its keep on the screens with a lot going on. A parent scanning an event card should be able to tell what is tappable without tapping to find out, and a colour that sometimes means "act on this" and sometimes means "read this" tells them nothing.
+
 Type is sized in rem or em, never in px, so that a browser or operating system font-size setting scales the page. Zoom is not a substitute. A parent who has set a larger default font — often the reason they set it is that they need it — gets nothing from a layout whose type is nailed to pixels, because a text-size setting only moves text sized in relative units. Spacing that has to hold text may be relative too; borders and hairlines can stay in px.
 
 ## Known gaps
