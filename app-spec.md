@@ -84,7 +84,7 @@ Each team carries the numbers the allocation runs on: maximum squads, maximum, t
 
 An admin sets them per team, because turnout and age change what works. An admin can also override them on a single event, which applies to that event only and leaves the team's settings alone.
 
-A team also carries a default event duration of 1 hour 15, overridable on a single event in the same way, and a switch for the automatic 24-hour reminder.
+A team also carries a default event duration of 1 hour 15, a response deadline of 24 hours before the start, and a switch for the automatic reminder. The duration and the deadline are overridable on a single event in the same way.
 
 ## Registered and unregistered members
 
@@ -164,9 +164,19 @@ An admin can override anyone's status. An override is visible to that person, sh
 
 An admin can send a chaser to an individual who hasn't responded. Chasers are per person, with no limit.
 
-The automatic 24-hour reminder is a team setting, on or off. It goes only to people who haven't responded.
-
 Members respond per event. There are no blackout dates and no date-range unavailability.
+
+### The response deadline
+
+An event has a response deadline, set as a number of hours before the event starts. It is a team setting, defaulting to 24 hours, and an admin can override it on a single event.
+
+**Nothing locks when it passes.** A parent can still change their answer afterwards, and doing so re-runs the allocation and tells the admin exactly as it does at any other time. The deadline is there to say when an answer is wanted, not to shut the door on one. A late change is more useful than no change.
+
+A parent sees the deadline on each event, and a count at the top of their page of how many answers are still outstanding across their children.
+
+An admin sees the deadline state on each calendar row: counting down before it, and saying responses have closed after it.
+
+The automatic reminder is a team setting, on or off. It goes only to people who haven't responded, and it is timed off the deadline rather than off the event, so it arrives a day before answers are due. For a Wednesday 18:30 session with a 24-hour deadline, answers are due Tuesday 18:30 and the reminder goes out Monday 18:30.
 
 ## Notifications
 

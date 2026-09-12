@@ -174,6 +174,8 @@ The reason is that banded squads make a child's rating readable by any parent wh
 
 The admin can move any player or coach between squads after allocation. A manual move is pinned.
 
+Moving someone must work without a mouse. Dragging is welcome as the quick way, but it cannot be the only way: every name carries a control that moves that person to a named squad, reachable by keyboard. A squad sheet gets worked on at a pitch-side on whatever device is to hand, and a rule that can only be applied by dragging is a rule some admins cannot apply at all.
+
 Re-running the allocation keeps pinned people where the admin put them and reallocates everyone else around them. The admin can clear all pins to get a clean allocation.
 
 When the coach-with-own-child setting is on, moving one of a coach and child pair moves the other with it, and warns the admin: a manual move never splits the pair. With the setting off there is no pair to hold together, and a coach moves on their own.

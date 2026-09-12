@@ -200,6 +200,16 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Recorded as a known gap, not decided.** The session plan is the club's to define rather than the app's: what goes into it is a coaching decision, and the app's part is carrying it to parents. The pitch layout diagram shows where the stations are and the route squads take between them, but what it has to show, and whether it is drawn per event or per venue, is undecided. Both need the club before either can be built.
 
+
+**53. Nothing said when an answer was actually wanted.** An event had an invitation, three statuses and a reminder, but no point by which a parent was expected to have answered — so an admin had no way of knowing whether silence at teatime meant "not yet" or "never".
+
+**Decided.** An event has a response deadline, set as a number of hours before the event starts. It is a team setting defaulting to 24 hours, and an admin can override it on a single event. **Nothing locks when it passes**: a parent can still change their answer afterwards, and doing so re-runs the allocation and tells the admin exactly as it does at any other time — a late change is more useful than no change. A parent sees the deadline on each event and a count at the top of their page of how many answers are still outstanding. An admin sees the deadline state on each calendar row, counting down before it and saying responses have closed after it. The reminder is retimed off it — see item 36.
+
+
+**54. Moving someone between squads worked only by dragging.** Manual changes were specified as the admin moving a player or coach between squads, and the first build made that a drag. Dragging needs a mouse, a steady hand and a screen big enough to hold two squads at once, none of which is a safe assumption for a volunteer sorting squads at the side of a pitch.
+
+**Decided.** Moving someone must work without a mouse. Dragging stays as the quick way, but every name also carries a control that moves that person to a named squad, reachable by keyboard. Both paths go through the same rules, so a move made either way is pinned, keeps a coach and child pair together, and reports what it broke.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:
@@ -229,6 +239,8 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 **36. Chaser and reminder scope.** Is the 24-hour reminder toggle per event or per team? Does it go to everyone or only non-responders? Is there a limit on manual chasers?
 
 **Decided.** The automatic 24-hour reminder is a team setting, on or off, and goes only to people who haven't responded. Manual chasers are per person with no limit.
+
+**Updated.** The reminder is now timed off the response deadline rather than off the event, so it arrives a day before answers are due rather than a day before the session. Everything else recorded above stands: a team setting, on or off, non-responders only, and unlimited manual chasers. The deadline itself is at item 53.
 
 **37. Whether an admin override of someone's status is visible to that person,** and whether an overridden "accepted" feeds the allocation identically to a real one.
 
