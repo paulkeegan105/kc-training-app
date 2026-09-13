@@ -207,35 +207,89 @@ function addMinutes(hhmm, mins) {
   return String(Math.floor(t / 60) % 24).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
 }
 
+/* ---- venues -------------------------------------------------------------
+   A venue carries its own eircode, map link and access note. They belong to the
+   place, not the session, so every event at a venue shows the same ones.
+
+   SAMPLE TEXT. The parking notes below are invented for the prototype and the
+   eircodes are examples. None of it is real club information: replace the whole
+   table before this goes anywhere near a parent. */
+
+const VENUES = {
+  "Glenalbyn, Pitch 1": {
+    eircode: "A94 E7K8",
+    note: "Main gate on Glenalbyn Road; the car park fills by 10am on match mornings, overflow parking on the Stillorgan Grove side."
+  },
+  "Silverpark": {
+    eircode: "A94 E7K8",
+    eircodeUnconfirmed: true,          // placeholder, waiting on the club to confirm
+    note: "Entrance off Sandyford Road; park along the top of the green and leave the residents' gate clear."
+  },
+  "Oatlands College": {
+    eircode: "A94 HX38",
+    note: "Use the Mount Merrion Avenue gate; the school yard is open for parking after 6pm on weekdays."
+  },
+  "Clubhouse, Function Room": {
+    eircode: "A94 E7K8",
+    note: "Clubhouse door beside the main car park; step-free access and a lift from the far end."
+  },
+  "Marlay Park": {
+    eircode: "D16 X310",
+    note: "Grange Road entrance; pay-and-display car park, about five minutes' walk to the pitches."
+  },
+  "Páirc Uí Mhurchú": {
+    eircode: "D18 K279",
+    note: "Parking on site inside the club gate; the far pitch is signposted from the car park."
+  }
+};
+
+const venueFor = (name) => VENUES[name] || null;
+const mapLinkFor = (v) => v && v.eircode
+  ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(v.eircode)
+  : null;
+
+/* ---- the season ---------------------------------------------------------
+   Hand-authored rather than generated, because the parent-facing states are the
+   point: every event state the two parent personas need to meet is somewhere in
+   these two lists. `squads: true` means squads were published for that event.
+
+   "Social" covers club social events. It takes invitations, answers, a deadline
+   and a reminder exactly as training does — coaches included — but no squad
+   allocation ever runs on one. */
+
 const SEASONS = {
   u9: [
-    { date: "2026-08-26", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
-    { date: "2026-09-02", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
-    { date: "2026-09-05", type: "Game", venue: "Glenalbyn, Pitch 1", time: "10:30", opposition: "Ballinteer St John's", duration: 60 },
-    { date: "2026-09-09", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
-    { date: "2026-09-16", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
+    { date: "2026-08-19", type: "Training", venue: "Oatlands College", time: "18:30" },
+    { date: "2026-08-26", type: "Training", venue: "Oatlands College", time: "18:30" },
+    { date: "2026-08-29", type: "Game", venue: "Glenalbyn, Pitch 1", time: "10:30", opposition: "Ballinteer St John's", duration: 60, squads: true },
+    { date: "2026-09-05", type: "Game", venue: "Marlay Park", time: "10:00", opposition: "Cuala", duration: 60, away: true, squads: true },
+    { date: "2026-09-09", type: "Training", venue: "Oatlands College", time: "18:30" },
+    { date: "2026-09-12", type: "Social", venue: "Clubhouse, Function Room", time: "15:00", title: "Club family day", duration: 150 },
+    { date: "2026-09-16", type: "Training", venue: "Oatlands College", time: "18:30", squads: true },
     { date: "2026-09-19", type: "Game", venue: "Marlay Park", time: "10:00", opposition: "Cuala", duration: 60, away: true },
-    { date: "2026-09-23", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
+    { date: "2026-09-23", type: "Training", venue: "Oatlands College", time: "18:30" },
     { date: "2026-09-26", type: "Game", venue: "Glenalbyn, Pitch 1", time: "10:30", opposition: "Naomh Olaf", duration: 60,
       cancelled: "Pitch waterlogged after Friday's rain." },
-    { date: "2026-09-30", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
     { date: "2026-10-03", type: "Blitz", venue: "Glenalbyn, Pitch 1", time: "10:00", duration: 150,
       title: "Cuala, Naomh Olaf and Ballinteer" },
-    { date: "2026-10-07", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
-    { date: "2026-10-14", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30", draft: true },
-    { date: "2026-10-24", type: "Other", venue: "Glenalbyn Clubhouse", time: "15:00", title: "Halloween party", duration: 120, draft: true }
+    { date: "2026-10-14", type: "Training", venue: "Oatlands College", time: "18:30", draft: true },
+    { date: "2026-10-31", type: "Social", venue: "Clubhouse, Function Room", time: "15:00", title: "Halloween party", duration: 120 }
   ],
   u11: [
+    { date: "2026-08-25", type: "Training", venue: "Silverpark", time: "18:45" },
     { date: "2026-09-01", type: "Training", venue: "Silverpark", time: "18:45" },
     { date: "2026-09-08", type: "Training", venue: "Silverpark", time: "18:45" },
-    { date: "2026-09-12", type: "Game", venue: "Glenalbyn, Pitch 1", time: "11:30", opposition: "Templeogue Synge Street", duration: 70 },
+    { date: "2026-09-12", type: "Game", venue: "Glenalbyn, Pitch 1", time: "11:30", opposition: "Templeogue Synge Street", duration: 70, squads: true },
     { date: "2026-09-15", type: "Training", venue: "Silverpark", time: "18:45" },
     { date: "2026-09-22", type: "Training", venue: "Silverpark", time: "18:45" },
-    { date: "2026-09-26", type: "Game", venue: "Pairc Uí Mhurchú", time: "12:00", opposition: "Kilmacud Crokes B", duration: 70, away: true },
+    { date: "2026-09-26", type: "Game", venue: "Páirc Uí Mhurchú", time: "12:00", opposition: "Kilmacud Crokes B", duration: 70, away: true },
     { date: "2026-09-29", type: "Training", venue: "Silverpark", time: "18:45" },
-    { date: "2026-10-06", type: "Training", venue: "Silverpark", time: "18:45", draft: true }
+    { date: "2026-10-06", type: "Training", venue: "Silverpark", time: "18:45", draft: true },
+    { date: "2026-12-12", type: "Social", venue: "Clubhouse, Function Room", time: "11:00", title: "Santa visit", duration: 120 }
   ]
 };
+
+const isSocialType = (type) => type === "Social";
 
 function buildEvents(team) {
   return SEASONS[team.id].map((spec, i) => {
@@ -252,6 +306,9 @@ function buildEvents(team) {
       cancelled: spec.cancelled || null,
       mode: team.mode,
       past: spec.date < TODAY,
+      /* no allocation ever runs on a social, so it can never be waiting on squads */
+      social: isSocialType(spec.type),
+      squadsPlanned: !!spec.squads && !isSocialType(spec.type),
       status: new Map(), answeredBy: new Map(), answeredAt: new Map()
     };
     ev.longDate = longDate(ev.date);
@@ -262,7 +319,9 @@ function buildEvents(team) {
   });
 }
 
-/* Responses for one published event. The coach's own child has to be there for the
+/* Responses for one published event, for the crowd. The two parent personas have
+   their own answers set explicitly further down; this fills in everybody else, and
+   is what the squad allocation reads. A coach's own child has to be there for the
    coach to be placed, so accepting coaches get their children accepted too. */
 function fillResponses(team, ev) {
   const children = team.people.filter((p) => p.type === "child");
@@ -377,73 +436,136 @@ function deadlineState(e) {
   return { closed: false, at, label: "Answers due in " + humanGap(ms), chip: "Closes in " + humanGap(ms) };
 }
 
+/* The event an admin lands on. Squads are the reason this view exists, so it skips
+   past a social, which never has any — the social is still reachable from the list. */
 function nextEventFor(team) {
-  return team.events.find((e) => !e.past && e.published && !e.cancelled)
+  const upcoming = (extra) => team.events.find((e) =>
+    !e.past && e.published && !e.cancelled && extra(e));
+  return upcoming((e) => !e.social) || upcoming(() => true)
     || team.events.find((e) => !e.past) || team.events[team.events.length - 1];
 }
 
-/* ---- seeded states ------------------------------------------------------
-   Three parent-facing states the generator never produces on its own, seeded
-   onto one persona so a tester meets them in the app rather than only on the
-   banners page. Consumes no randomness, so persona selection is unchanged. */
+/* ---- the parent-facing scenarios ----------------------------------------
+   The crowd's answers are generated; these are not. Every event state the brief
+   asks the two parent personas to cover is written out here by hand, so the
+   coverage can be read off the table rather than inferred from a random seed.
 
-const SEEDED = (function () {
-  const parent = BY_ID.get(PERSONAS[2].id);          // the non-coaching parent
-  const kids = parent.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
-  const u9Kid = kids.find((k) => k.teamId === "u9");
-  const u11Kid = kids.find((k) => k.teamId === "u11");
+   Applied before squads are published. The answers that have to land AFTER
+   publication — the child who accepted once the squads had gone out — are in
+   LATE_ANSWERS below, and app.js applies them once it has published.           */
 
-  /* 1. a school this parent typed into "other", waiting on a Club Admin.
-        school stays empty, so the allocation keeps counting them a singleton. */
+const SCENARIO = (function () {
+  const coach = BY_ID.get(PERSONAS[1].id);            // Aileen: coaches U9, one child
+  const plain = BY_ID.get(PERSONAS[2].id);            // Helena: no role, a child in each group
+  const kidsOf = (a) => a.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
+  const coachKid = kidsOf(coach)[0];                                  // U9
+  const u9Kid = kidsOf(plain).find((k) => k.teamId === "u9");
+  const u11Kid = kidsOf(plain).find((k) => k.teamId === "u11");
+
+  const at = (iso, hh, mm) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d, hh || 9, mm || 30);
+  };
+  const evOn = (teamId, iso) => TEAM_BY_ID.get(teamId).events.find((e) => e.date === iso);
+
+  /* one answer, said plainly: who, what they said, who said it and when.
+     `by` is an adult's id, or the string "admin" for an office override. */
+  function say(teamId, iso, person, status, by, whenIso) {
+    const e = evOn(teamId, iso);
+    if (!e || !person) return;
+    if (status === "none") {
+      e.status.set(person.id, "none");
+      e.answeredBy.delete(person.id);
+      e.answeredAt.delete(person.id);
+      return;
+    }
+    e.status.set(person.id, status);
+    e.answeredBy.set(person.id, by === "admin" ? "admin" : by.id);
+    e.answeredAt.set(person.id, at(whenIso));
+  }
+
+  const parentOf = (kid) => BY_ID.get(kid.parentIds[0]);
+
+  /* --- Aileen (coaches U9) and her daughter. Two answers on every U9 row. --- */
+  say("u9", "2026-08-19", coachKid, "accepted", coach, "2026-08-14");
+  say("u9", "2026-08-19", coach, "accepted", coach, "2026-08-14");
+
+  say("u9", "2026-08-26", coachKid, "declined", coach, "2026-08-21");
+  say("u9", "2026-08-26", coach, "declined", coach, "2026-08-21");
+
+  // past, squads published, both in a squad
+  say("u9", "2026-08-29", coachKid, "accepted", coach, "2026-08-24");
+  say("u9", "2026-08-29", coach, "accepted", coach, "2026-08-24");
+
+  // past, squads published — her answer lands late, see LATE_ANSWERS
+  say("u9", "2026-09-05", coachKid, "none");
+  say("u9", "2026-09-05", coach, "accepted", coach, "2026-08-31");
+
+  // past and answered, and the child's answer was put in by the office
+  say("u9", "2026-09-09", coachKid, "accepted", "admin", "2026-09-07");
+  say("u9", "2026-09-09", coach, "accepted", coach, "2026-09-03");
+
+  /* today, deadline already gone, child answered and the coach has not:
+     this is what puts the outstanding-answers banner on her view */
+  say("u9", "2026-09-12", coachKid, "accepted", coach, "2026-09-08");
+  say("u9", "2026-09-12", coach, "none");
+
+  // upcoming, deadline open, squads out: the card both personas can compare
+  say("u9", "2026-09-16", coachKid, "accepted", coach, "2026-09-07");
+  say("u9", "2026-09-16", coach, "accepted", coach, "2026-09-07");
+
+  say("u9", "2026-09-19", coachKid, "none");
+  say("u9", "2026-09-19", coach, "accepted", coach, "2026-09-09");
+
+  // the two answers on the row disagree: her daughter is going, she is not
+  say("u9", "2026-09-23", coachKid, "accepted", coach, "2026-09-10");
+  say("u9", "2026-09-23", coach, "declined", coach, "2026-09-10");
+
+  say("u9", "2026-10-03", coachKid, "accepted", coach, "2026-09-11");
+  say("u9", "2026-10-03", coach, "accepted", coach, "2026-09-11");
+
+  say("u9", "2026-10-31", coachKid, "accepted", coach, "2026-09-11");
+  say("u9", "2026-10-31", coach, "none");
+
+  /* --- Helena: no role, a child in each age group --- */
+  const pa = parentOf(u9Kid);
+
+  say("u9", "2026-08-19", u9Kid, "none");                  // past, never answered
+  say("u9", "2026-08-26", u9Kid, "accepted", pa, "2026-08-22");
+  say("u9", "2026-08-29", u9Kid, "accepted", pa, "2026-08-23");
+  say("u9", "2026-09-05", u9Kid, "declined", pa, "2026-09-01");
+  say("u9", "2026-09-09", u9Kid, "accepted", pa, "2026-09-06");
+  say("u9", "2026-09-12", u9Kid, "accepted", pa, "2026-09-09");
+  say("u9", "2026-09-16", u9Kid, "accepted", pa, "2026-09-08");  // squad card
+  say("u9", "2026-09-19", u9Kid, "accepted", pa, "2026-09-10");
+  say("u9", "2026-09-23", u9Kid, "declined", pa, "2026-09-11");
+  say("u9", "2026-10-03", u9Kid, "accepted", pa, "2026-09-11");
+  say("u9", "2026-10-31", u9Kid, "accepted", "admin", "2026-09-11");
+
+  say("u11", "2026-08-25", u11Kid, "accepted", pa, "2026-08-20");
+  say("u11", "2026-09-01", u11Kid, "accepted", pa, "2026-08-28");
+  say("u11", "2026-09-08", u11Kid, "none");                // past, never answered
+  say("u11", "2026-09-12", u11Kid, "none");                // today, deadline gone, never answered
+  say("u11", "2026-09-15", u11Kid, "declined", pa, "2026-09-10");
+  say("u11", "2026-09-22", u11Kid, "accepted", pa, "2026-09-11");
+  say("u11", "2026-09-26", u11Kid, "accepted", pa, "2026-09-11");
+  say("u11", "2026-09-29", u11Kid, "accepted", pa, "2026-09-11");
+  say("u11", "2026-12-12", u11Kid, "none");
+
+  /* two school states a parent can be shown: one typed into "other" and waiting on
+     the club to map it, and one never filled in at all */
   u9Kid.school = "";
   u9Kid.schoolPending = "St Malachy's NS";
-
-  /* 2. no school at all — what every child looks like before a parent fills
-        anything in, which is the state the club sees on day one. */
   u11Kid.school = "";
   u11Kid.schoolPending = null;
 
-  const unanswer = (e, person) => {
-    if (!e) return null;
-    e.status.set(person.id, "none");
-    e.answeredBy.delete(person.id);
-    e.answeredAt.delete(person.id);
-    return e;
-  };
-
-  /* 3. past its response deadline, not yet started, never answered. That state
-        lives in the window between the deadline passing and the throw-in. */
-  const closedUnanswered = unanswer(TEAM_BY_ID.get("u11").events.find((e) =>
-    e.published && !e.cancelled && eventStart(e) > NOW && deadlineState(e).closed), u11Kid);
-
-  /* and a finished session nobody answered, so the "answers still to give"
-     count can be seen leaving it out */
-  const pastUnanswered = unanswer([...TEAM_BY_ID.get("u9").events].reverse().find((e) =>
-    e.published && !e.cancelled && eventStart(e) <= NOW), u9Kid);
-
-  /* 4. the squad card, which this persona could not reach at all. Squads are only
-        published for each team's next event, and on that event this child was down
-        as not coming, so no squad panel, no player list, no own-child marker. With
-        the answer the other way the two parent personas land on the same event with
-        the same card, and the only thing that differs on it is the coach numbers. */
-  const squadEvent = nextEventFor(TEAM_BY_ID.get("u9"));
-  if (squadEvent) {
-    squadEvent.status.set(u9Kid.id, "accepted");
-    squadEvent.answeredBy.set(u9Kid.id, parent.id);
-    squadEvent.answeredAt.set(u9Kid.id, new Date(NOW.getTime() - 6 * 86400000));
-  }
-
-  /* 5. and the mirror of it on the coaching persona: something owed inside the week,
-        so the outstanding-answers banner is reachable there too. Her only unanswered
-        event was eleven days out. It has to be an event whose squads are not
-        published, or she would be listed as a coach on a squad for a session she
-        has not answered. */
-  const coach = BY_ID.get(PERSONAS[1].id);
-  const coachKid = coach.childIds.map((id) => BY_ID.get(id)).filter(Boolean)[0];
-  const weekEnd = new Date(NOW.getTime() + 7 * 86400000);
-  const bannerEvent = unanswer(TEAM_BY_ID.get(coachKid.teamId).events.find((e) =>
-    e.published && !e.cancelled && !e.squadsPublished && e !== squadEvent
-    && eventStart(e) > NOW && eventStart(e) <= weekEnd), coachKid);
-
-  return { parent, u9Kid, u11Kid, closedUnanswered, pastUnanswered, squadEvent, bannerEvent };
+  return { coach, coachKid, plain, u9Kid, u11Kid, at };
 })();
+
+/* Answers that have to arrive after the squads did, so the child is left out of one.
+   app.js applies these once it has published, and the app then tells the parent that
+   the squads went out before their answer came in. */
+const LATE_ANSWERS = [
+  { teamId: "u9", date: "2026-09-05", personId: SCENARIO.coachKid.id,
+    byId: SCENARIO.coach.id, when: SCENARIO.at("2026-09-03") }
+];

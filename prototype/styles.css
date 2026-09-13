@@ -397,8 +397,19 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .btn.ghost:hover { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.7); }
 
 /* ---- a parent's own view, desktop first ---- */
-.family { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 22px; align-items: start; }
-@media (max-width: 900px) { .family { grid-template-columns: minmax(0, 1fr); } }
+/* ---- the parent's two tabs ----
+   A second, quieter strip than the purple app bar: these switch a panel inside the
+   page, not the whole view, and they read as part of the page they sit on. */
+.ptabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.ptab {
+  background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  font: inherit; font-size: 15px; font-weight: 650; color: var(--muted);
+  padding: 9px 14px; cursor: pointer; white-space: nowrap;
+}
+.ptab:hover { color: var(--ink); }
+.ptab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand); }
+.ppanel:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 8px; }
+.ppanel[hidden] { display: none; }
 
 .ev-when { flex: none; width: 58px; text-align: center; border-radius: 10px; padding: 8px 4px; }
 .ev-when .dd { font-size: 21px; font-weight: 700; line-height: 1; }
@@ -596,10 +607,23 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
    Purple tile 11.09:1 light, 8.98:1 dark. Muted past tile 6.24:1 light, 5.75:1 dark. */
 .ev-when.is-training { background: var(--brand-soft); color: var(--brand-soft-ink); }
 .ev-when.is-match { background: var(--gold); color: #1C1022; }
+/* social takes the neutral tile: the same surface-2 on muted the past tiles already
+   use, measured at 6.24:1 light and 5.75:1 dark. No new colour is introduced. */
+.ev-when.is-social { background: var(--surface-2); color: var(--muted); }
 
 /* a finished match must not sit there brighter than an upcoming session */
 .fev.is-past .ev-when.is-training,
-.fev.is-past .ev-when.is-match { background: var(--surface-2); color: var(--muted); }
+.fev.is-past .ev-when.is-match,
+.fev.is-past .ev-when.is-social { background: var(--surface-2); color: var(--muted); }
+
+/* ---- how to get there: eircode, a link to maps, and what the parking is like ---- */
+.venue-detail { padding: 0 0 12px; font-size: 13px; }
+.vd-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.vd-k { color: var(--muted); font-weight: 650; }
+.vd-v { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.vd-map { color: var(--brand); font-weight: 650; text-decoration: underline; }
+.vd-map:hover { text-decoration: none; }
+.vd-note { color: var(--muted); margin-top: 5px; line-height: 1.45; }
 
 /* ---- an answer that exists is one line ---- */
 .kid-block.one-line { padding-bottom: 0; }
@@ -633,12 +657,9 @@ button.whoami .caret { width: .7em; height: auto; flex: none; }
   background: none; border: 0; border-radius: 8px; padding: 9px 11px; color: var(--ink); cursor: pointer;
 }
 .menu-item:hover { background: var(--surface-2); }
-.menu-rule { height: 1px; background: var(--line); margin: 5px 8px; }
-.menu-panel { padding: 4px 11px 10px; border-bottom: 1px solid var(--surface-2); }
-.menu-panel .childrow { padding: 8px 0; }
-.menu-panel .kv { font-size: 13px; }
 
-/* on a narrow screen the cards come from the menu, not from under a season of events */
-@media (max-width: 900px) {
-  .family > div:last-child { display: none; }
-}
+/* the family panel is one column of cards, at any width */
+.ppanel .side-card { max-width: 560px; }
+
+/* ---- TEMPORARY: theme switch in the header. Delete with renderThemeToggle. ---- */
+.themebtn { display: grid; place-items: center; flex: none; }

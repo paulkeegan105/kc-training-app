@@ -38,12 +38,12 @@ const ratingLegend = (style = "") => `<div class="legend" ${style ? `style="${st
 const state = {
   signedInId: null,
   editScope: "admin",
+  familyTab: "calendar",
   familyOpenId: null,
   familyShowEarlier: false,
   familyChild: "all",
   familyEditing: null,
   menuOpen: false,
-  menuPanel: null,
   editDraft: null,
   editErrorField: null,
   editReturnTo: null,
@@ -127,7 +127,7 @@ function rerun(keepPins = true, reason = null) {
   const before = placementSnapshot();
   if (!keepPins) state.pins.clear();
   const e = ev();
-  if (!e || !e.published || e.cancelled) {
+  if (!e || !e.published || e.cancelled || isSocial(e)) {
     state.result = null;
     if (reason) state.rerunNotice = describeRerun(reason, before, null);
     return;
@@ -143,15 +143,15 @@ function rerun(keepPins = true, reason = null) {
 
 /* Publishing freezes what parents see. The snapshot is what the family view reads,
    so a later re-run doesn't quietly change a squad someone was already told about. */
-function publishSquads(e, result) {
-  if (!result || !result.groups) return;
+function publishSquads(e, result, at) {
+  if (!result || !result.groups || isSocial(e)) return;
   e.squads = result.groups.map((g, i) => ({
     name: g.name, index: i,
     childIds: g.children.map((c) => c.id),
     coachIds: g.coaches.map((c) => c.id)
   }));
   e.squadsPublished = true;
-  e.squadsPublishedAt = NOW;
+  e.squadsPublishedAt = at || NOW;
 }
 
 function squadForChild(e, childId) {
@@ -168,6 +168,26 @@ function allocationFor(t, e) {
     pins: new Map(), groupLabel: "Squad" });
 }
 
+/* ---- TEMPORARY: theme switch in the header ------------------------------
+   Here for user testing only, so a tester can flip the theme without a menu.
+   To remove: delete this function, its call in renderAll, its listener at the
+   foot of this file, #theme-toggle in index.html and .themebtn in styles.css. */
+function renderThemeToggle() {
+  const btn = el("theme-toggle");
+  if (!btn) return;
+  const dark = themeIsDark();
+  btn.setAttribute("aria-label", dark ? "Switch to the light theme" : "Switch to the dark theme");
+  btn.title = dark ? "Switch to the light theme" : "Switch to the dark theme";
+  btn.innerHTML = dark
+    ? `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+         <circle cx="12" cy="12" r="4.2"/><path d="M12 2.4v2.2M12 19.4v2.2M4.2 12H2M22 12h-2.2
+         M5.6 5.6 7.2 7.2M16.8 16.8l1.6 1.6M18.4 5.6 16.8 7.2M7.2 16.8l-1.6 1.6"/></svg>`
+    : `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+         <path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>`;
+}
+
 function renderWhoami() {
   /* The name is the control. No hamburger: there is nothing to navigate to, and on a
      phone shared between two parents the name is worth keeping in sight. */
@@ -176,84 +196,25 @@ function renderWhoami() {
        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
-const isNarrow = () => matchMedia("(max-width: 900px)").matches;
-
 function themeIsDark() {
   const set = document.documentElement.getAttribute("data-theme");
   return set ? set === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 function renderUserMenu() {
-  const me = signedIn();
-  const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
-  const narrow = isNarrow();
-  const open = state.menuPanel;
-
-  const childPanel = `<div class="menu-panel">
-      ${kids.map((k) => `<div class="childrow"><div class="cr-top"><div>
-        <div class="cn">${esc(k.name)}</div>
-        <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${schoolForParent(k)}</div></div>
-        <button class="linkbtn" data-fedit="${k.id}">Change school</button></div></div>`).join("")}
-    </div>`;
-
-  const detailPanel = `<div class="menu-panel">
-      <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
-      <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
-      <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
-      <button class="linkbtn" style="margin-top:9px" data-fedit="${me.id}">Edit your details</button>
-    </div>`;
-
-  el("usermenu").innerHTML = `
-    <button class="menu-item" data-menu="theme">${themeIsDark() ? "Switch to light" : "Switch to dark"}</button>
-    <button class="menu-item" data-menu="children" aria-expanded="${open === "children"}">Your children</button>
-    ${narrow && open === "children" ? childPanel : ""}
-    <button class="menu-item" data-menu="details" aria-expanded="${open === "details"}">Your details</button>
-    ${narrow && open === "details" ? detailPanel : ""}
-    <div class="menu-rule"></div>
-    <button class="menu-item" data-menu="signout">Sign out</button>`;
-
-  el("usermenu").querySelectorAll("[data-menu]").forEach((b) => {
-    b.onclick = () => {
-      const what = b.dataset.menu;
-      if (what === "theme") {
-        document.documentElement.setAttribute("data-theme", themeIsDark() ? "light" : "dark");
-        renderUserMenu();
-        const again = el("usermenu").querySelector('[data-menu="theme"]');
-        if (again) again.focus();
-        return;
-      }
-      if (what === "signout") { closeUserMenu(false); signOut(); return; }
-      if (isNarrow()) {
-        state.menuPanel = state.menuPanel === what ? null : what;
-        renderUserMenu();
-        const again = el("usermenu").querySelector('[data-menu="' + what + '"]');
-        if (again) again.focus();
-      } else {
-        // on a wide screen the cards are already on the page; take them there
-        closeUserMenu();
-        const card = document.querySelectorAll("#view-family .side-card")[what === "children" ? 0 : 1];
-        if (card) {
-          card.scrollIntoView({ block: "center", behavior: "smooth" });
-          const h = card.querySelector("h3");
-          if (h) { h.setAttribute("tabindex", "-1"); h.focus(); }
-        }
-      }
-    };
-  });
-
-  if (isNarrow()) {
-    el("usermenu").querySelectorAll("[data-fedit]").forEach((b) =>
-      b.onclick = () => {
-        closeUserMenu(false);
-        showView("family");
-        openFamilyDialog(Number(b.dataset.fedit), '[data-fedit="' + b.dataset.fedit + '"]');
-      });
-  }
+  /* The menu used to carry the family cards and the theme. Both have somewhere better
+     to be — the cards are a tab, the theme is a button in the header — so signing out
+     is all that is left. */
+  el("usermenu").innerHTML =
+    `<button class="menu-item" data-menu="signout">Sign out</button>`;
+  el("usermenu").querySelector('[data-menu="signout"]').onclick = () => {
+    closeUserMenu(false);
+    signOut();
+  };
 }
 
 function openUserMenu() {
   state.menuOpen = true;
-  state.menuPanel = null;
   el("usermenu").hidden = false;
   el("whoami").setAttribute("aria-expanded", "true");
   renderUserMenu();
@@ -263,7 +224,6 @@ function openUserMenu() {
 
 function closeUserMenu(restoreFocus = true) {
   state.menuOpen = false;
-  state.menuPanel = null;
   el("usermenu").hidden = true;
   el("whoami").setAttribute("aria-expanded", "false");
   if (restoreFocus) el("whoami").focus();
@@ -285,6 +245,7 @@ function renderAll() {
   if (!me) return;
   const y = window.scrollY;
   renderWhoami();
+  renderThemeToggle();
   if (isAdmin(me)) { renderCalendar(); renderMembers(); renderInvite(); renderGroups(); }
   renderFamily();
   window.scrollTo(0, y);
@@ -297,12 +258,22 @@ function renderAll() {
 function eventTitle(e) {
   if (e.type === "Game") return "Match &middot; " + esc((e.away ? "Away to " : "Home to ") + e.opposition);
   if (e.type === "Blitz") return "Blitz &middot; " + esc(e.title || e.venue);
+  if (e.type === "Social") return "Social &middot; " + esc(e.title || e.venue);
   if (e.title) return esc(e.title);
   return "Training";
 }
 
-/* matches and blitzes share the club gold; training keeps the purple */
-const tileKind = (e) => (e.type === "Game" || e.type === "Blitz") ? "is-match" : "is-training";
+/* a social takes answers like any other event, but no allocation ever runs on it */
+const isSocial = (e) => !!e && e.type === "Social";
+
+/* the type as a word, for a sentence rather than a label */
+const typeWord = (e) => e.type === "Game" ? "match"
+  : e.type === "Social" ? "social event" : e.type.toLowerCase();
+
+/* matches and blitzes share the club gold, training keeps the purple, and a social
+   takes the neutral tile. The word in the title carries the meaning either way. */
+const tileKind = (e) => (e.type === "Game" || e.type === "Blitz") ? "is-match"
+  : e.type === "Social" ? "is-social" : "is-training";
 
 function renderCalendar() {
   const t = team();
@@ -760,7 +731,7 @@ function renderInvite() {
   const parent = parentsOf(child)[0];
   const st = e.status.get(child.id) || "none";
   const step = st !== "none" ? "done" : "ask";
-  const subject = t.name + " " + (e.type === "Game" ? "match" : e.type.toLowerCase()) + " — " + e.dayName + " " + e.shortDate;
+  const subject = t.name + " " + typeWord(e) + " — " + e.dayName + " " + e.shortDate;
 
   const facts = `
     <div class="mfacts">
@@ -827,7 +798,7 @@ function renderInvite() {
               </div>
               <div class="mbody">
                 <p>Hi ${esc(parent ? parent.firstName : "there")},</p>
-                <p>${esc(child.firstName)} is invited to ${t.name} ${e.type === "Game" ? "match" : e.type.toLowerCase()}.</p>
+                <p>${esc(child.firstName)} is invited to ${t.name} ${typeWord(e)}.</p>
                 ${facts}
                 <p>Can ${esc(child.firstName)} make it?</p>
                 <div class="mbtns">
@@ -884,10 +855,12 @@ function renderInvite() {
 
 function renderGroups() {
   const e = ev(), t = team();
+  // nothing to publish where nothing is allocated, so the button does not offer it
   const head = `<div class="page-head">
       <div><h2>Squads</h2><div class="count">${eventTitle(e)} &middot; ${e.longDate} &middot; ${t.name}</div></div>
       <div class="spacer"></div>
-      <button class="btn primary" id="publish-squads">${e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button></div>`;
+      ${isSocial(e) ? "" : `<button class="btn primary" id="publish-squads">${
+        e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button>`}</div>`;
 
   if (!e.published) {
     el("view-groups").innerHTML = head + `<div class="alert warn"><b>This event is a draft.</b>
@@ -897,6 +870,12 @@ function renderGroups() {
   if (e.cancelled) {
     el("view-groups").innerHTML = head + `<div class="alert stop"><b>This event was cancelled.</b>
       ${esc(e.cancelled)}</div>`;
+    return;
+  }
+  if (isSocial(e)) {
+    el("view-groups").innerHTML = head + `<div class="alert"><b>Social events aren't allocated.</b>
+      Everyone who said yes is coming to the same thing, so there are no squads to divide
+      them into. Answers are still collected, and you can see them on the invitation.</div>`;
     return;
   }
 
@@ -1170,6 +1149,16 @@ function squadLabel(e, sq) {
 
 function familyAnswer(e, personId, value) {
   const me = signedIn();
+
+  /* Tapping the answer that is already there is a way of closing the chooser, not a new
+     answer. Writing it again would move "answered by / when" to now, and that line has
+     to keep saying when the answer was actually given. */
+  if ((e.status.get(personId) || "none") === value) {
+    state.familyEditing = null;
+    renderAll();
+    return;
+  }
+
   e.status.set(personId, value);
   if (value === "none") { e.answeredBy.delete(personId); e.answeredAt.delete(personId); }
   else { e.answeredBy.set(personId, me.id); e.answeredAt.set(personId, NOW); }
@@ -1226,6 +1215,8 @@ function hasStarted(e) { return eventStart(e) <= NOW; }
 
 function squadPanel(entry, person) {
   const e = entry.event, me = signedIn();
+  // nothing is ever allocated for a social, so it must never be shown waiting on squads
+  if (isSocial(e)) return "";
   const sq = squadForChild(e, person.id);
   if (!sq) {
     /* Three different situations, and telling them apart matters: a parent told to
@@ -1272,6 +1263,23 @@ function squadPanel(entry, person) {
         <h5>Players (${players.length})</h5>
         <ul class="cols">${players.map((c) => nameItem(c, c.id === person.id, "your child")).join("")}</ul>
       </div>
+    </div>`;
+}
+
+/* What a parent needs to get there: where it is, the eircode to type into a phone, a
+   link that opens it in maps, and whatever is awkward about parking. All of it belongs
+   to the venue, so every event at that venue shows the same lines. */
+function venueBlock(e) {
+  const v = venueFor(e.venue);
+  if (!v) return "";
+  const map = mapLinkFor(v);
+  return `<div class="venue-detail">
+      ${v.eircode ? `<div class="vd-line"><span class="vd-k">Eircode</span>
+        <span class="vd-v">${esc(v.eircode)}${v.eircodeUnconfirmed
+          ? ' <span class="tag unreg">to be confirmed</span>' : ""}</span>
+        ${map ? `<a class="vd-map" href="${esc(map)}" target="_blank" rel="noopener noreferrer"
+          >Open in maps<span class="vh"> (opens in a new tab)</span></a>` : ""}</div>` : ""}
+      ${v.note ? `<div class="vd-note">${esc(v.note)}</div>` : ""}
     </div>`;
 }
 
@@ -1334,9 +1342,7 @@ function answerBlock(entry, person, label) {
         <button class="btn choice ${st === "accepted" ? "is-selected" : ""}" aria-pressed="${st === "accepted"}"
           data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
         <button class="btn choice ${st === "declined" ? "is-selected" : ""}" aria-pressed="${st === "declined"}"
-          data-no="${person.id}" data-ev="${e.id}">Can't make it</button>
-        ${st === "none" ? "" : `<button class="linkbtn" data-cancel-change="1">Keep ${
-          st === "accepted" ? "Yes, coming" : "Can't make it"}</button>`}</span>`;
+          data-no="${person.id}" data-ev="${e.id}">Can't make it</button></span>`;
   }
 
   return `<div class="kid-block">
@@ -1437,7 +1443,8 @@ function renderFamily() {
       ${open ? `<div class="fev-body">
         ${e.cancelled
           ? `<div class="alert stop" style="margin:0"><b>Cancelled.</b> ${esc(e.cancelled)}</div>`
-          : `<div class="fev-facts"><span>${esc(e.venue)}${e.away ? " &middot; away" : ""} &middot; ${range}</span></div>${blocks}`}
+          : `<div class="fev-facts"><span>${esc(e.venue)}${e.away ? " &middot; away" : ""} &middot; ${range}</span></div>
+             ${venueBlock(e)}${blocks}`}
       </div>` : ""}
     </div>`;
   };
@@ -1505,39 +1512,78 @@ function renderFamily() {
        </div>`
     : "";
 
+  const banner = outstanding
+    ? `<button class="alert warn alert-action" id="goto-owed">
+        <span class="alert-words">${outstanding === 1
+          ? `<b>1 answer still to give, for ${esc(owedWho)}, ${owedWhen}.</b>`
+          : `<b>${outstanding} answers still to give.</b> The first is ${esc(owedWho)}, ${owedWhen}.`}</span>
+        <span class="alert-go">Take me there &#8594;</span></button>`
+    : "";
+
+  /* Two tabs, and the tab is the heading: a page title saying "Your family" over a
+     tab saying the same thing says it twice. Calendar is what a parent came for, so
+     it is where they land. */
+  const tab = state.familyTab === "family" ? "family" : "calendar";
+  const tabBtn = (id, label) => `<button role="tab" id="ptab-${id}" class="ptab"
+      aria-controls="ppanel-${id}" aria-selected="${tab === id}"
+      tabindex="${tab === id ? "0" : "-1"}" data-ptab="${id}">${label}</button>`;
+
   el("view-family").innerHTML = `
-    <div class="page-head">
-      <div><h2>Your family</h2>
-        ${kids.length > 1 ? "" : `<div class="count">${esc(kids.map((k) => k.firstName).join(" and "))}</div>`}</div>
+    <div class="ptabs" role="tablist" aria-label="Your family">
+      ${tabBtn("calendar", "Calendar")}${tabBtn("family", "Your family")}
     </div>
-    ${outstanding
-      ? `<button class="alert warn alert-action" id="goto-owed">
-          <span class="alert-words">${outstanding === 1
-            ? `<b>1 answer still to give, for ${esc(owedWho)}, ${owedWhen}.</b>`
-            : `<b>${outstanding} answers still to give.</b> The first is ${esc(owedWho)}, ${owedWhen}.`}</span>
-          <span class="alert-go">Take me there &#8594;</span></button>`
-      : ""}
-    <div class="family">
-      <div>${chipRow}${body}</div>
-      <div>
-        <div class="side-card">
-          <h3>Your children</h3>
-          ${childCards}
+    <div class="ppanel" role="tabpanel" id="ppanel-calendar" aria-labelledby="ptab-calendar"
+      tabindex="0" ${tab === "calendar" ? "" : "hidden"}>
+      ${banner}${chipRow}${body}
+    </div>
+    <div class="ppanel" role="tabpanel" id="ppanel-family" aria-labelledby="ptab-family"
+      tabindex="0" ${tab === "family" ? "" : "hidden"}>
+      <div class="side-card">
+        <h3>Your children</h3>
+        ${childCards}
+      </div>
+      <div class="side-card">
+        <div class="cr-top" style="margin-bottom:10px">
+          <h3 style="margin:0">Your details</h3>
+          <button class="linkbtn" data-fedit="${me.id}">Edit</button>
         </div>
-        <div class="side-card">
-          <div class="cr-top" style="margin-bottom:10px">
-            <h3 style="margin:0">Your details</h3>
-            <button class="linkbtn" data-fedit="${me.id}">Edit</button>
-          </div>
-          <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
-          <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
-          <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
-        </div>
+        <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
+        <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
+        <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
       </div>
     </div>
     ${familyEditModal()}`;
 
   wireFamily(firstOwed);
+}
+
+/* Arrow keys move between the tabs and take the selection with them, which is the
+   pattern a screen reader user expects from a tablist. Tab itself leaves the strip
+   and lands in the panel, so there is one stop here, not two. */
+function wireParentTabs(root) {
+  const tabs = [...root.querySelectorAll("[data-ptab]")];
+  const show = (name, focus) => {
+    state.familyTab = name;
+    renderFamily();
+    if (focus) {
+      const again = el("view-family").querySelector(`[data-ptab="${name}"]`);
+      if (again) again.focus();
+    }
+  };
+  tabs.forEach((b, i) => {
+    b.onclick = () => show(b.dataset.ptab, false);
+    b.onkeydown = (e) => {
+      const last = tabs.length - 1;
+      let to = null;
+      if (e.key === "ArrowRight") to = i === last ? 0 : i + 1;
+      else if (e.key === "ArrowLeft") to = i === 0 ? last : i - 1;
+      else if (e.key === "Home") to = 0;
+      else if (e.key === "End") to = last;
+      if (to === null) return;
+      e.preventDefault();
+      show(tabs[to].dataset.ptab, true);
+    };
+  });
 }
 
 function familyEditModal() {
@@ -1636,6 +1682,7 @@ function trapTab(e) {
 
 function wireFamily(firstOwed) {
   const root = el("view-family");
+  wireParentTabs(root);
 
   const toggle = el("earlier-toggle");
   if (toggle) toggle.onclick = () => { state.familyShowEarlier = !state.familyShowEarlier; renderFamily(); };
@@ -1650,6 +1697,7 @@ function wireFamily(firstOwed) {
   const goto = el("goto-owed");
   if (goto && firstOwed) goto.onclick = () => {
     // the thing it counted may be hidden by the current filter, so clear it on the way
+    state.familyTab = "calendar";
     state.familyChild = "all";
     state.familyOpenId = firstOwed.entry.event.id;
     if (hasStarted(firstOwed.entry.event)) state.familyShowEarlier = true;
@@ -1675,8 +1723,6 @@ function wireFamily(firstOwed) {
   // opens the choice and writes nothing
   root.querySelectorAll("[data-change]").forEach((b) =>
     b.onclick = () => { state.familyEditing = b.dataset.change; renderFamily(); });
-  root.querySelectorAll("[data-cancel-change]").forEach((b) =>
-    b.onclick = () => { state.familyEditing = null; renderFamily(); });
 
   root.querySelectorAll("[data-fedit]").forEach((b) =>
     b.onclick = () => openFamilyDialog(Number(b.dataset.fedit), '[data-fedit="' + b.dataset.fedit + '"]'));
@@ -1789,13 +1835,13 @@ function signInAs(id) {
 
 function signOut() {
   state.menuOpen = false;
-  state.menuPanel = null;
   if (el("usermenu")) { el("usermenu").hidden = true; el("whoami").setAttribute("aria-expanded", "false"); }
   state.signedInId = null;
   state.editingId = null;
   state.editDraft = null;
   state.editErrorField = null;
   // view state belongs to the session that made it
+  state.familyTab = "calendar";
   state.familyChild = "all";
   state.familyOpenId = null;
   state.familyShowEarlier = false;
@@ -1825,6 +1871,13 @@ el("team-pick").onchange = () => { selectTeam(el("team-pick").value); renderAll(
 
 el("whoami").onclick = () => { state.menuOpen ? closeUserMenu() : openUserMenu(); };
 
+/* TEMPORARY: see renderThemeToggle */
+el("theme-toggle").onclick = () => {
+  document.documentElement.setAttribute("data-theme", themeIsDark() ? "light" : "dark");
+  renderThemeToggle();
+  el("theme-toggle").focus();
+};
+
 document.addEventListener("keydown", (e) => {
   if (!state.menuOpen) return;
   if (e.key === "Escape") { e.stopPropagation(); closeUserMenu(); }
@@ -1836,11 +1889,28 @@ document.addEventListener("mousedown", (e) => {
       && !el("whoami").contains(e.target)) closeUserMenu(false);
 });
 
-/* squads are already out for the next session of each team, so a parent signing in
-   has something to look at; later sessions are left unpublished on purpose */
+/* Squads go out for the events the season marked `squads: true`, and nowhere else —
+   which leaves sessions in both states for a parent to meet. They went out three days
+   before the session, or this morning for one that close, never in the future. */
 TEAMS.forEach((t) => {
-  const e = nextEventFor(t);
-  if (e && e.published && !e.cancelled) publishSquads(e, allocationFor(t, e));
+  t.events.forEach((e) => {
+    if (!e.squadsPlanned || !e.published || e.cancelled) return;
+    const at = new Date(Math.min(eventStart(e).getTime() - 3 * 86400000,
+      NOW.getTime() - 2 * 3600000));
+    publishSquads(e, allocationFor(t, e), at);
+  });
+});
+
+/* The answers that came in after the squads had gone out. Applied here rather than with
+   the rest of the scenario because they only mean anything once there is a squad list to
+   be missing from: the child is down as coming and is in nobody's squad, which is the
+   state the app has to explain rather than hide. */
+LATE_ANSWERS.forEach((a) => {
+  const e = TEAM_BY_ID.get(a.teamId).events.find((x) => x.date === a.date);
+  if (!e || !e.squadsPublished) return;
+  e.status.set(a.personId, "accepted");
+  e.answeredBy.set(a.personId, a.byId);
+  e.answeredAt.set(a.personId, a.when);
 });
 
 /* Seeded, and only reachable once squads exist: a second coach on the squad the
