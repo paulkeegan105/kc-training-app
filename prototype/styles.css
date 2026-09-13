@@ -95,8 +95,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 .fev-head:focus-visible,
 .evhead:focus-visible,
 .persona:focus-visible,
-.moveto:focus-visible,
-.status-pick:focus-visible { outline-offset: -3px; }
+.moveto:focus-visible { outline-offset: -3px; }
 
 /* on the purple chrome the brand purple would be invisible, so the ring goes gold */
 .appbar :focus-visible { outline-color: var(--gold); }
@@ -159,7 +158,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 22px 20px 70px; }
   border: 1px solid var(--line); background: var(--surface); color: var(--muted);
 }
 .chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
-.search, select.pick, .status-pick {
+.search, select.pick {
   font: inherit; font-size: 13.5px; padding: 8px 12px; border-radius: 8px;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink);
 }
@@ -243,45 +242,33 @@ tbody tr:last-child td { border-bottom: 0; }
 .mini-stats b { font-size: 18px; font-weight: 700; display: block; }
 .mini-stats .accepted b { color: var(--ok); } .mini-stats .declined b { color: var(--stop); }
 
-/* ---- invitation ---- */
-.invite-wrap { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
-.phone { width: 356px; background: #120C18; border-radius: 30px; padding: 11px; box-shadow: 0 10px 34px rgba(28,16,34,.3); flex: none; }
-.phone .screen { background: var(--bg); border-radius: 21px; overflow: hidden; }
-.phone .pbar { background: var(--header); color: var(--header-ink); padding: 11px 15px; font-size: 13px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
-.phone .pbar img { width: 20px; height: 20px; background: #fff; border-radius: 4px; padding: 1px; }
-.phone .pbody { padding: 14px; }
-.phone-label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+/* ---- the event picker, on Responses and on Squads ---- */
+.evpick {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surface-2); border-radius: 10px; padding: 11px 14px; margin: 0 0 16px;
+}
+.evpick-l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+.evpick .pick { flex: 1 1 280px; min-width: 0; max-width: 460px; }
+.evpick-when { font-size: 13px; color: var(--muted); }
 
-.mail { background: var(--surface); border-radius: 11px; box-shadow: var(--shadow); overflow: hidden; }
-.mail .mhead { padding: 12px 14px; border-bottom: 1px solid var(--surface-2); }
-.mail .msub { font-weight: 700; font-size: 14.5px; margin-bottom: 3px; }
-.mail .mfrom { font-size: 12px; color: var(--muted); }
-.mail .mbody { padding: 14px; font-size: 13.5px; line-height: 1.55; }
-.mail .mbody p { margin: 0 0 11px; }
-.mail .mfacts { background: var(--surface-2); border-radius: 8px; padding: 11px 12px; margin: 0 0 13px; font-size: 13px; }
-.mail .mfacts div { display: flex; gap: 8px; padding: 2px 0; }
-.mail .mfacts .k { color: var(--muted); min-width: 62px; }
-.mail .mbtns { display: flex; gap: 8px; }
-.mail .mbtns .btn { flex: 1; text-align: center; justify-content: center; }
-.mail .foot { font-size: 11.5px; color: var(--muted); padding: 0 14px 14px; }
+/* two rows of chips: who to show, then what they said */
+.chiprow { margin-bottom: 8px; }
+.chiprow + .chiprow { margin-bottom: 14px; }
 
-.pcard { background: var(--surface); border-radius: 11px; padding: 15px; box-shadow: var(--shadow); margin-bottom: 11px; }
-.pcard .ev { font-size: 12px; color: var(--muted); }
-.pcard .grp { font-size: 22px; font-weight: 700; color: var(--brand); margin: 3px 0 2px; }
-.pcard h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 7px; font-weight: 700; }
-.pcard ul { margin: 0; padding: 0; list-style: none; }
-.pcard li { padding: 4px 0; font-size: 13.5px; border-bottom: 1px solid var(--surface-2); }
-.pcard li:last-child { border-bottom: 0; }
-.pcard li.me { font-weight: 650; color: var(--brand); }
-.ask { font-size: 17px; font-weight: 700; margin: 2px 0 12px; }
-.answer-btns { display: grid; gap: 8px; }
-.answer-btns .btn { padding: 13px; font-size: 15px; }
-.done { text-align: center; padding: 10px 0; }
-.done .tick { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 10px; font-size: 22px; font-weight: 700; }
-.done.yes .tick { background: var(--ok-bg); color: var(--ok-ink); }
-.done.no .tick { background: var(--stop-bg); color: var(--stop-ink); }
+/* the status chooser: three options, the current one selected, nothing written until
+   one is picked. See open-questions item 91. */
+.st-choose { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.st-choose .btn { font-size: 12.5px; padding: 6px 11px; }
+.st-choose .is-selected { border-color: var(--brand); box-shadow: var(--ring); }
+.pickcell { text-align: right; white-space: nowrap; }
 
-.note { font-size: 12.5px; color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+/* an override is a fact about the answer, so it is marked on the status itself */
+.by-admin { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+
+/* a table wider than the phone scrolls inside its own card rather than pushing the
+   page sideways, which main's overflow would otherwise clip the last column off */
+.card.scrollx { overflow-x: auto; }
+
 .notice { border-left: 3px solid var(--gold); padding-left: 12px; margin: 14px 0; font-size: 13.5px; color: var(--muted); }
 
 /* ---- groups ---- */
@@ -342,12 +329,7 @@ button.link { background: none; border: 0; font: inherit; font-size: 12.5px; col
 .switch { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
 .switch input { margin: 0; accent-color: var(--brand); cursor: pointer; }
 
-/* ---- parent view ---- */
-.parent-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 26px; align-items: start; }
-@media (max-width: 820px) {
-  .parent-wrap { grid-template-columns: 1fr; }
-  .phone { width: 100%; max-width: 356px; }
-}
+/* ---- footer ---- */
 footer { max-width: 1120px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: 12.5px; }
 footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
 
@@ -418,20 +400,6 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .btn.ghost:hover { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.7); }
 
 /* ---- a parent's own view, desktop first ---- */
-/* ---- the parent's two tabs ----
-   A second, quieter strip than the purple app bar: these switch a panel inside the
-   page, not the whole view, and they read as part of the page they sit on. */
-.ptabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
-.ptab {
-  background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
-  font: inherit; font-size: 15px; font-weight: 650; color: var(--muted);
-  padding: 9px 14px; cursor: pointer; white-space: nowrap;
-}
-.ptab:hover { color: var(--ink); }
-.ptab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand); }
-.ppanel:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 8px; }
-.ppanel[hidden] { display: none; }
-
 .ev-when { flex: none; width: 58px; text-align: center; border-radius: 10px; padding: 8px 4px; }
 .ev-when .dd { font-size: 21px; font-weight: 700; line-height: 1; }
 .ev-when .mm { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
@@ -492,10 +460,8 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .dl-set input { font: inherit; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink); width: 90px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .dl-set .sub { text-transform: none; letter-spacing: 0; font-weight: 400; }
 
-/* the invitation tab must not push the page sideways */
+/* no screen may push the page sideways at phone width */
 main { overflow-x: hidden; }
-.invite-wrap > div { min-width: 0; max-width: 100%; }
-.invite-wrap .phone { max-width: 100%; }
 
 /* ---- the parent's season calendar ---- */
 .fev { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 9px; overflow: hidden; border-left: 4px solid transparent; }

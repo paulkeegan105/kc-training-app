@@ -502,6 +502,33 @@ Neither half of the behaviour changed; the sentence was simply wrong about half 
 Also fixed alongside it: the email helper now reads "Where invitations and reminders are sent", and "These are yours to change" came off the Your details dialog — it described the dialog rather than telling anyone anything.
 
 
+**89. The admin side had no tab structure specified anywhere.** The parent's two tabs were written down at item 78 and nothing said what the admin's own navigation was, so it had accumulated: five tabs, one of which — Invitation — held a demo of the parent's experience rather than an admin feature, complete with an email mock-up, a persona dropdown and a panel explaining what the screen did.
+
+**Decided.** Six flat tabs: **Calendar, Members, Responses, Squads, My calendar, My family.** The parent's two views stop being a nested strip inside one admin tab and become top-level tabs of their own, carrying exactly what they carried before. They are shown only to an adult who is a parent of a child in the team being looked at, and hidden otherwise — an admin with no child in this age group has no family view of it to show. The Invitation tab's contents come out of the product entirely: a demonstration of somebody else's screen is a thing to show a client, not a feature to ship.
+
+Six is wide on a phone, and it is being **tried rather than assumed**. The strip scrolls sideways and is sticky at every scroll position, because the tabs are how everything is reached; the page title and the action buttons under it are not sticky, because they belong to the screen rather than to the app. If six does not survive testing the fallback is a mode switch in the header — admin or parent — with the tabs inside each mode. What was ruled out is a place behind the signed-in name, per item 78: that is an account control, and navigation hidden behind one is navigation nobody finds.
+
+The strip is a single tablist, keeping the keyboard behaviour item 78 specified for the parent's own strip: arrow keys move between the tabs and take the selection with them, Home and End jump to the ends, and Tab leaves the strip for the panel rather than stepping through every tab on the way.
+
+
+**90. The admin calendar carried the full response list inside an expanded row.** Opening an event gave the admin the event detail, the deadline, the counts and then every invited person — 105 rows for an Under 9 event — with its own filter chips and search, inside a row of a list of thirteen events.
+
+**Decided.** The calendar is the **schedule**: the season in date order, and the place events are created, edited and published. Responses move to a screen of their own with an event picker at the top, defaulting to the next event with answers outstanding. The picker is what makes the move work — without one, the only way to reach an event's answers would be through the calendar, which is the coupling being undone.
+
+The row keeps what it had: the date tile, the type-led title, the times, the venue, the deadline state and the accepted count. **"Which event needs chasing" has to be answerable from the list**, and that is what the deadline state and the count are for; taking them off would have moved the question somewhere else rather than answering it. The expanded card keeps the event detail, the deadline and its override, and the three counts as a summary, and gains a link to this event on the Responses tab. The two buttons that pointed at the other tabs — "See the groups" and "See what a parent gets" — are gone: the first is a tab with its own picker now, and the second was pointing at the demo.
+
+Squads got the same picker for the same reason, defaulting to the next event still needing them. One picker component on both screens, and one selected event across the admin side: two independent selections would mean two answers to "which event am I looking at", and an allocation that belongs to neither.
+
+
+**91. An admin override was a native select that fired on change.** Every row of the response list carried a dropdown of the three statuses, and choosing one wrote it immediately.
+
+**Decided.** A button that opens the chooser from item 79: the three statuses with the current one selected, **writing nothing until one is picked**, and picking the one already selected closes it and writes nothing. Once a status is chosen the save is confirmed, and the confirmation says the person will see it was set by an admin.
+
+Two reasons, and the first is the one that bites. Arrowing through a native select changes the value as you go, so a keyboard user moving from Accepted to No response sets Declined on the way past — and every step of that re-runs the allocation and is visible to the person whose answer it is. The second is that WCAG 3.3.4 asks for a confirmation step wherever user-controllable data is modified, and somebody else's answer to whether their child is coming is exactly that. Item 79 had already settled the shape of the control for a parent; there was no reason for an admin to get a worse one.
+
+The ANSWERED column goes with it, and the provenance moves onto the status itself, where an admin-set answer is marked as such. Item 56's reasoning was about a household being able to tell one parent's answer from another's — it was never about an admin, who is not one of two people who might have answered for a child. What an admin needs from that line is whether this answer came from the family or from the admin side, and that is one mark on the status rather than a column.
+
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

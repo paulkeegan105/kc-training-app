@@ -38,7 +38,6 @@ const ratingLegend = (style = "") => `<div class="legend" ${style ? `style="${st
 const state = {
   signedInId: null,
   editScope: "admin",
-  familyTab: "calendar",
   familyOpen: new Set(),      // event ids, not one id: see the [data-fev] handler
   familyTouchedRows: false,   // once a parent opens or closes one, stop choosing for them
   familyShowEarlier: false,
@@ -50,14 +49,17 @@ const state = {
   editReturnTo: null,
   teamId: "u9",
   eventId: null,
+  view: null,
   settings: null,
   mode: null,
   groupCount: 0,
   pins: new Map(),
   result: null,
   lastMove: null,
-  inviteChildId: null,
-  inviteStep: "ask",
+  respEditing: null,        // "personId" while that row's status chooser is open
+  eventPicked: false,       // an admin has chosen an event by hand, so stop defaulting
+  respDefaulted: false,     // each screen picks its own first event, once per team
+  squadDefaulted: false,
   rerunNotice: null,
   editingId: null,
   editError: ""
@@ -81,14 +83,16 @@ function selectTeam(id) {
   state.settings = { ...t.settings };
   state.mode = t.mode;
   state.groupCount = 0;
+  state.eventPicked = false;
+  state.respDefaulted = false;
+  state.squadDefaulted = false;
   selectEvent(nextEventFor(t).id);
 }
 function selectEvent(id) {
   state.eventId = id;
   state.pins.clear();
   state.lastMove = null;
-  state.inviteChildId = null;
-  state.inviteStep = "ask";
+  state.respEditing = null;
   state.rerunNotice = null;
   rerun();
 }
@@ -248,7 +252,7 @@ function renderAll() {
   const y = window.scrollY;
   renderWhoami();
   renderThemeToggle();
-  if (isAdmin(me)) { renderCalendar(); renderMembers(); renderInvite(); renderGroups(); }
+  if (isAdmin(me)) { renderCalendar(); renderMembers(); renderResponses(); renderGroups(); }
   renderFamily();
   window.scrollTo(0, y);
 }
@@ -346,10 +350,9 @@ function renderCalendar() {
           <div class="toolbar" style="margin:0 0 4px">
             ${e.draft ? `<button class="btn primary" data-publish="${e.id}">Publish and invite</button>
               <button class="btn" data-delete="${e.id}">Delete</button>` : ""}
-            ${e.published && !e.cancelled ? `<button class="btn" data-go="groups">See the groups</button>
-              <button class="btn" data-go="invite">See what a parent gets</button>` : ""}
+            ${e.published && !e.cancelled
+              ? `<button class="btn" data-go-responses="${e.id}">See who has answered</button>` : ""}
           </div>
-          ${e.published && !e.cancelled ? responseList(e) : ""}
         </div>` : ""}
       </div>`;
     }).join("")}`).join("");
@@ -377,35 +380,22 @@ function renderCalendar() {
       t2.events.splice(t2.events.indexOf(e), 1);
       selectEvent(nextEventFor(t2).id); renderAll();
     });
-  el("view-calendar").querySelectorAll("[data-go]").forEach((b) =>
-    b.onclick = () => showView(b.dataset.go));
-  el("view-calendar").querySelectorAll("[data-caltab]").forEach((b) =>
-    b.onclick = () => { calTab = b.dataset.caltab; renderCalendar(); });
-  el("view-calendar").querySelectorAll("[data-calstatus]").forEach((b) =>
-    b.onclick = () => { calStatus = b.dataset.calstatus; renderCalendar(); });
-  const cs = el("cal-search");
-  if (cs) cs.oninput = () => {
-    calSearch = cs.value;
-    const at = cs.selectionStart;
-    renderCalendar();
-    const ns = el("cal-search"); if (ns) { ns.focus(); ns.setSelectionRange(at, at); }
-  };
+  /* The card is the schedule's entry for this event; the answers live on their own
+     screen. Following the link takes the event with it, so the picker over there is
+     already on it and never re-defaults underneath the admin. */
+  el("view-calendar").querySelectorAll("[data-go-responses]").forEach((b) =>
+    b.onclick = () => {
+      selectEvent(b.dataset.goResponses);
+      state.eventPicked = true;
+      renderAll();
+      showView("responses");
+    });
   const dl = el("dl-" + state.eventId);
   if (dl) dl.onchange = () => {
     const e2 = ev();
     e2.deadlineHours = Math.max(1, Math.min(336, Number(dl.value) || 24));
     renderAll();
   };
-  el("view-calendar").querySelectorAll(".status-pick").forEach((sel) =>
-    sel.onchange = () => {
-      const id = Number(sel.dataset.person);
-      ev().status.set(id, sel.value);
-      if (sel.value === "none") { ev().answeredBy.delete(id); ev().answeredAt.delete(id); }
-      else { ev().answeredBy.set(id, "admin"); ev().answeredAt.set(id, NOW); }
-      const who = BY_ID.get(id);
-      rerun(true, who.name + " was set to " + STATUS_LABEL[sel.value].toLowerCase() + " by an admin");
-      renderAll();
-    });
 }
 
 function publishEvent(e) {
@@ -415,73 +405,59 @@ function publishEvent(e) {
   t.people.filter((p) => p.type === "adult" && p.coachIn[t.id]).forEach((a) => e.status.set(a.id, "none"));
 }
 
-function answeredSummary(e, personId) {
-  const st = e.status.get(personId) || "none";
-  if (st === "none") return "";
-  const by = e.answeredBy.get(personId), when = e.answeredAt.get(personId);
-  const whoBy = by === "admin" ? "an admin" : (BY_ID.get(by) ? BY_ID.get(by).firstName : "an admin");
-  return esc("by " + whoBy + (when ? ", " + fmtDay(when) : ""));
+/* ---------------- the event picker, shared by Responses and Squads ----------------
+
+   One picker component, used on both screens. It writes to `state.eventId`, which is
+   the single event the admin side is looking at — the allocation, the calendar's open
+   row and the response list all read it, so two independent selections would mean two
+   allocations and two answers to "which event is this". Each screen still chooses its
+   own opening event: Responses lands on the next one with answers outstanding, Squads
+   on the next one still needing squads, and once an admin picks one by hand it stays
+   picked whichever screen they move to.                                             */
+
+const eventState = (e) => e.cancelled ? "cancelled" : e.draft ? "draft" : e.past ? "finished" : "";
+
+function eventPicker(id, label) {
+  const t = team(), e = ev();
+  const opts = t.events.map((x) => {
+    const st = eventState(x);
+    return `<option value="${x.id}" ${x.id === state.eventId ? "selected" : ""}>${
+      x.dayName.slice(0, 3)} ${x.shortDate} &middot; ${eventTitle(x)}${st ? " (" + st + ")" : ""}</option>`;
+  }).join("");
+  return `<div class="evpick">
+      <label class="evpick-l" for="${id}">${label}</label>
+      <select class="pick" id="${id}">${opts}</select>
+      <div class="evpick-when">${e.longDate} &middot; ${e.time}&ndash;${e.endTime} &middot; ${esc(e.venue)}</div>
+    </div>`;
 }
 
-function responseList(e) {
-  const t = team();
-  const kids = t.people.filter((p) => p.type === "child");
-  const coaches = t.people.filter((p) => p.type === "adult" && p.coachIn[t.id]);
-  const rank = { accepted: 0, declined: 1, none: 2 };
+function wireEventPicker(id) {
+  const sel = el(id);
+  if (!sel) return;
+  sel.onchange = () => {
+    state.eventPicked = true;    // chosen by hand, so no screen defaults over it again
+    selectEvent(sel.value);
+    renderAll();
+  };
+}
 
-  let people = (calTab === "children" ? kids : coaches).slice();
-  const counts = { accepted: 0, declined: 0, none: 0 };
-  people.forEach((p) => { counts[e.status.get(p.id) || "none"]++; });
+/* the next event still waiting on somebody */
+function nextOutstandingEvent(t) {
+  return t.events.find((e) => e.published && !e.cancelled && !e.past
+      && [...e.status.values()].some((v) => v === "none"))
+    || nextEventFor(t);
+}
 
-  if (calStatus !== "all") people = people.filter((p) => (e.status.get(p.id) || "none") === calStatus);
-  if (calSearch) {
-    const q = calSearch.toLowerCase();
-    people = people.filter((p) => p.name.toLowerCase().includes(q)
-      || (p.type === "child" ? parentsOf(p) : p.childIds.map((id) => BY_ID.get(id)).filter(Boolean))
-           .some((r) => r.name.toLowerCase().includes(q)));
-  }
-
-  const rows = people
-    .sort((a, b) => rank[e.status.get(a.id) || "none"] - rank[e.status.get(b.id) || "none"]
-      || a.lastName.localeCompare(b.lastName))
-    .map((p) => {
-      const st = e.status.get(p.id) || "none";
-      const sub = p.type === "child"
-        ? "Child &middot; " + esc(parentsOf(p).map((a) => a.name).join(", "))
-        : "Coach &middot; parent of " + esc(p.childIds.map((id) => BY_ID.get(id)).filter(Boolean).map((c) => c.name).join(", "));
-      return `<tr>
-        <td><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></td>
-        <td>${statusTag(st)}</td>
-        <td class="sub">${answeredSummary(e, p.id)}</td>
-        <td style="text-align:right"><select class="status-pick" data-person="${p.id}">
-          ${["accepted", "declined", "none"].map((k) =>
-            `<option value="${k}" ${st === k ? "selected" : ""}>${STATUS_LABEL[k]}</option>`).join("")}
-        </select></td></tr>`;
-    }).join("");
-
-  return `
-    <div class="toolbar" style="margin:14px 0 8px">
-      <button class="chip" data-caltab="children" aria-pressed="${calTab === "children"}">Children (${kids.length})</button>
-      <button class="chip" data-caltab="coaches" aria-pressed="${calTab === "coaches"}">Coaches (${coaches.length})</button>
-      <span style="width:12px"></span>
-      ${[["all", "All"], ["accepted", "Accepted"], ["declined", "Declined"], ["none", "No response"]]
-        .map(([k, l]) => `<button class="chip" data-calstatus="${k}" aria-pressed="${calStatus === k}">${l}${
-          k === "all" ? "" : " (" + counts[k] + ")"}</button>`).join("")}
-      <div class="spacer"></div>
-      <input class="search" id="cal-search" placeholder="Search a name" value="${esc(calSearch)}">
-    </div>
-    <div class="card"><table>
-      <thead><tr><th>Name</th><th>Status</th><th>Answered</th><th style="text-align:right">Change</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="sub" style="padding:20px">Nobody matches that.</td></tr>`}</tbody>
-    </table></div>
-    <div class="notice">An admin can override anyone's response. The override is visible to that person,
-      shown as set by an admin, and feeds the allocation exactly like a real answer.</div>`;
+/* the next event that has squads to work out and hasn't had them published */
+function nextUnsquaddedEvent(t) {
+  return t.events.find((e) => e.published && !e.cancelled && !e.past
+      && !isSocial(e) && !e.squadsPublished)
+    || nextEventFor(t);
 }
 
 /* ---------------- members ---------------- */
 
 let memberFilter = "all", memberSearch = "";
-let calTab = "children", calStatus = "all", calSearch = "";
 
 function renderMembers() {
   const t = team();
@@ -693,163 +669,155 @@ function wireEditModal() {
   };
 }
 
-/* ---------------- the parent's invitation ---------------- */
+/* ---------------- responses ----------------
 
-function inviteChild() {
-  const e = ev();
-  if (state.inviteChildId) {
-    const c = BY_ID.get(state.inviteChildId);
-    if (c && c.teamId === state.teamId) return c;
-  }
-  const kids = teamChildren();
-  const mine = kids.find((c) => c.parentIds.includes(SHARED_PARENT.parent.id));
-  const waiting = kids.find((c) => e.status.get(c.id) === "none");
-  return mine || waiting || kids[0];
+   The admin's answer to "who has said what, and who still needs chasing". It used to
+   live inside an expanded calendar row, which meant 105 rows of it under one event on
+   an Under 9 night; the calendar is the schedule now and this is its own screen.     */
+
+let respAudience = "all", respStatus = "all", respSearch = "";
+
+const RESP_AUDIENCE = [["all", "All"], ["children", "Children"], ["coaches", "Coaches"]];
+const RESP_STATUS = [["all", "All"], ["accepted", "Accepted"], ["declined", "Declined"], ["none", "No response"]];
+
+/* Three statuses, the current one shown as selected, and nothing written until one is
+   picked — the same rule as the parent's chooser at item 79. Picking the one already
+   selected closes it and writes nothing, which is how an admin backs out. A native
+   select changed the value on the way past it with an arrow key. */
+function statusChooser(p, st) {
+  return `<div class="st-choose" role="group" aria-label="Set the status for ${esc(p.name)}">
+      ${["accepted", "declined", "none"].map((k) =>
+        `<button class="btn choice ${st === k ? "is-selected" : ""}" aria-pressed="${st === k}"
+           data-set="${k}" data-person="${p.id}">${STATUS_LABEL[k]}</button>`).join("")}
+    </div>`;
 }
 
-function answer(child, value) {
-  const e = ev();
-  e.status.set(child.id, value);
-  e.answeredBy.set(child.id, parentsOf(child)[0] ? parentsOf(child)[0].id : "admin");
-  e.answeredAt.set(child.id, NOW);
-  state.inviteStep = "done";
-  rerun(true, child.name + " " + (value === "accepted" ? "accepted" : "declined") + " on their own invitation");
+function setStatusByAdmin(personId, value) {
+  const e = ev(), who = BY_ID.get(personId);
+  state.respEditing = null;
+
+  /* the status it already has: close the chooser, write nothing, and leave the
+     answered-on date saying when the answer was actually given */
+  if ((e.status.get(personId) || "none") === value) return renderAll();
+
+  e.status.set(personId, value);
+  if (value === "none") { e.answeredBy.delete(personId); e.answeredAt.delete(personId); }
+  else { e.answeredBy.set(personId, "admin"); e.answeredAt.set(personId, NOW); }
+
+  toast(value === "none"
+    ? who.name + "'s answer was cleared."
+    : who.name + " is down as " + STATUS_LABEL[value].toLowerCase()
+      + ". They will see it was set by an admin.");
+  rerun(true, who.name + " was set to " + STATUS_LABEL[value].toLowerCase() + " by an admin");
   renderAll();
 }
 
-function renderInvite() {
+function renderResponses() {
   const e = ev(), t = team();
-  const wrap = el("view-invite");
+  const head = `<div class="page-head">
+      <div><h2>Responses</h2>
+        <div class="count">${t.name} &middot; who has answered, and who still needs asking</div></div>
+    </div>
+    ${eventPicker("resp-event", "Event")}`;
 
   if (!e.published) {
-    wrap.innerHTML = `<div class="page-head"><div><h2>The parent's invitation</h2>
-      <div class="count">${eventTitle(e)} &middot; ${e.longDate}</div></div></div>
-      <div class="alert notice"><b>Nothing has been sent yet.</b> This event is still a draft, so no member can
-      see it. Publish it on the calendar and the invitation below goes out.</div>`;
+    el("view-responses").innerHTML = head + `<div class="alert notice"><b>Nobody has been invited yet.</b>
+      This event is still a draft, so there are no answers to show. Publishing it on the calendar is what
+      sends the invitations.</div>`;
+    wireEventPicker("resp-event");
+    return;
+  }
+  if (e.cancelled) {
+    el("view-responses").innerHTML = head + `<div class="alert stop"><b>This event was cancelled.</b>
+      ${esc(e.cancelled)} Everyone invited was notified, and no more answers are being collected.</div>`;
+    wireEventPicker("resp-event");
     return;
   }
 
-  const child = inviteChild();
-  const parent = parentsOf(child)[0];
-  const st = e.status.get(child.id) || "none";
-  const step = st !== "none" ? "done" : "ask";
-  const subject = t.name + " " + typeWord(e) + " — " + e.dayName + " " + e.shortDate;
+  const kids = teamChildren(), coaches = coachesNow();
+  const rank = { accepted: 0, declined: 1, none: 2 };
 
-  const facts = `
-    <div class="mfacts">
-      <div><span class="k">What</span><span>${eventTitle(e)}</span></div>
-      <div><span class="k">When</span><span>${e.longDate}, ${e.time}&ndash;${e.endTime}</span></div>
-      <div><span class="k">Meet</span><span>${e.meetTime}</span></div>
-      <div><span class="k">Where</span><span>${esc(e.venue)}</span></div>
-    </div>`;
+  let people = respAudience === "children" ? kids.slice()
+    : respAudience === "coaches" ? coaches.slice()
+    : kids.concat(coaches);
 
-  let panel;
-  if (step === "done") {
-    const yes = st === "accepted";
-    panel = `
-      <div class="pcard">
-        <div class="done ${yes ? "yes" : "no"}">
-          <div class="tick">${yes ? "&check;" : "&times;"}</div>
-          <div style="font-weight:700;font-size:16px">${yes ? esc(child.firstName) + " is down as going" : esc(child.firstName) + " is marked as not going"}</div>
-          <div class="sub" style="margin-top:5px">${eventTitle(e)} &middot; ${e.dayName} ${e.shortDate}, ${e.time}</div>
-        </div>
-      </div>
-      <div class="pcard">
-        <h4>Changed your mind?</h4>
-        <div class="answer-btns"><button class="btn" id="change-answer">Change your answer</button></div>
-      </div>`;
-  } else {
-    panel = `
-      <div class="pcard">
-        <div class="ev">${t.name} &middot; ${e.type}</div>
-        <div class="grp" style="font-size:19px">${eventTitle(e)}</div>
-        <div class="sub">${e.longDate}<br>${e.time}&ndash;${e.endTime} &middot; meet at ${e.meetTime}<br>${esc(e.venue)}</div>
-      </div>
-      <div class="pcard">
-        <div class="ask">Can ${esc(child.firstName)} make it?</div>
-        <div class="answer-btns">
-          <button class="btn choice" id="say-yes">Yes, ${esc(child.firstName)} will be there</button>
-          <button class="btn choice" id="say-no">No, can't make it</button>
-        </div>
-        <div class="note" style="margin-top:11px">You are answering for ${esc(child.name)}.
-          ${parent && parent.coachIn[t.id] ? "You are asked separately about coaching on the night." : ""}</div>
-      </div>`;
+  /* the counts belong to the audience being looked at, so they are taken before the
+     status filter and after the audience one */
+  const counts = { accepted: 0, declined: 0, none: 0 };
+  people.forEach((p) => { counts[e.status.get(p.id) || "none"]++; });
+
+  if (respStatus !== "all") people = people.filter((p) => (e.status.get(p.id) || "none") === respStatus);
+  if (respSearch) {
+    const q = respSearch.toLowerCase();
+    people = people.filter((p) => p.name.toLowerCase().includes(q)
+      || (p.type === "child" ? parentsOf(p) : p.childIds.map((id) => BY_ID.get(id)).filter(Boolean))
+           .some((r) => r.name.toLowerCase().includes(q)));
   }
 
-  wrap.innerHTML = `
-    <div class="page-head">
-      <div><h2>The parent's invitation</h2>
-        <div class="count">${eventTitle(e)} &middot; ${e.longDate}</div></div>
-      <div class="spacer"></div>
-      <select class="pick" id="invite-child">
-        ${teamChildren().slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) =>
-          `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${esc(c.name)} — ${STATUS_LABEL[e.status.get(c.id) || "none"]}</option>`).join("")}
-      </select>
+  const rows = people
+    .sort((a, b) => rank[e.status.get(a.id) || "none"] - rank[e.status.get(b.id) || "none"]
+      || a.lastName.localeCompare(b.lastName))
+    .map((p) => {
+      const st = e.status.get(p.id) || "none";
+      const sub = p.type === "child"
+        ? "Child &middot; " + esc(parentsOf(p).map((a) => a.name).join(", "))
+        : "Coach &middot; parent of " + esc(p.childIds.map((id) => BY_ID.get(id)).filter(Boolean).map((c) => c.name).join(", "));
+      /* An override is marked on the status itself rather than in a column of its own:
+         it is a fact about this answer, and the person sees the same thing. */
+      const byAdmin = st !== "none" && e.answeredBy.get(p.id) === "admin";
+      const choosing = state.respEditing === String(p.id);
+      return `<tr>
+        <td><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></td>
+        <td>${statusTag(st)}${byAdmin ? '<div class="by-admin">Set by an admin</div>' : ""}</td>
+        <td class="pickcell">${choosing
+          ? statusChooser(p, st)
+          : `<button class="btn tiny" data-pick="${p.id}" aria-expanded="false"
+               aria-label="Change the status for ${esc(p.name)}">Change&hellip;</button>`}</td></tr>`;
+    }).join("");
+
+  el("view-responses").innerHTML = head + `
+    <div class="toolbar chiprow" role="group" aria-label="Who to show">
+      ${RESP_AUDIENCE.map(([k, l]) => `<button class="chip" data-audience="${k}"
+        aria-pressed="${respAudience === k}">${l}</button>`).join("")}
     </div>
+    <div class="toolbar chiprow" role="group" aria-label="Filter by status">
+      ${RESP_STATUS.map(([k, l]) => `<button class="chip" data-status="${k}"
+        aria-pressed="${respStatus === k}">${l}${k === "all" ? "" : " (" + counts[k] + ")"}</button>`).join("")}
+      <div class="spacer"></div>
+      <input class="search" id="resp-search" placeholder="Search a name" value="${esc(respSearch)}">
+    </div>
+    <div class="card scrollx"><table>
+      <thead><tr><th>Name</th><th>Status</th><th class="pickcell">Change</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3" class="sub" style="padding:20px">Nobody matches that.</td></tr>`}</tbody>
+    </table></div>
+    <div class="notice">An admin can set anyone's status. It is visible to that person, shown as set by an
+      admin, and feeds the allocation exactly like a real answer. A chaser can be sent to anyone who
+      hasn't answered, as often as needed.</div>`;
 
-    <div class="invite-wrap">
-      <div>
-        <div class="phone-label">1. The email that arrives</div>
-        <div class="phone"><div class="screen">
-          <div class="pbar"><img src="Kilmacud_crokes_logo.png" alt="">Inbox</div>
-          <div class="pbody">
-            <div class="mail">
-              <div class="mhead">
-                <div class="msub">${esc(subject)}</div>
-                <div class="mfrom">Kilmacud Crokes &lt;noreply@kilmacudcrokes.ie&gt;<br>to ${esc(parent ? parent.email : "")}</div>
-              </div>
-              <div class="mbody">
-                <p>Hi ${esc(parent ? parent.firstName : "there")},</p>
-                <p>${esc(child.firstName)} is invited to ${t.name} ${typeWord(e)}.</p>
-                ${facts}
-                <p>Can ${esc(child.firstName)} make it?</p>
-                <div class="mbtns">
-                  <button class="btn choice" id="mail-yes">Yes, coming</button>
-                  <button class="btn choice" id="mail-no">Can't make it</button>
-                </div>
-              </div>
-              <div class="foot">You are getting this because ${esc(child.firstName)} is on the ${t.name} team.
-                No app to install &mdash; the buttons open the page on the right.</div>
-            </div>
-          </div>
-        </div></div>
-      </div>
+  wireEventPicker("resp-event");
 
-      <div>
-        <div class="phone-label">2. The screen the buttons open</div>
-        <div class="phone"><div class="screen">
-          <div class="pbar"><img src="Kilmacud_crokes_logo.png" alt="">Kilmacud Crokes &middot; ${t.name}</div>
-          <div class="pbody">${panel}</div>
-        </div></div>
-      </div>
+  el("view-responses").querySelectorAll("[data-audience]").forEach((b) =>
+    b.onclick = () => { respAudience = b.dataset.audience; state.respEditing = null; renderResponses(); });
+  el("view-responses").querySelectorAll("[data-status]").forEach((b) =>
+    b.onclick = () => { respStatus = b.dataset.status; state.respEditing = null; renderResponses(); });
 
-      <div style="flex:1;min-width:240px">
-        <div class="card card-pad">
-          <h3 style="font-size:15px;margin-bottom:10px">What this screen does</h3>
-          <div class="note" style="margin-bottom:9px">Answers are <b>per child</b>, not per account. Either parent on
-            the account can answer, and either can change it afterwards.</div>
-          <div class="note" style="margin-bottom:9px">Declining is one tap, the same as accepting. No reason is asked for.</div>
-          <div class="note" style="margin-bottom:9px">A coaching parent answers for themselves separately, because
-            they can be unavailable on a night their child still attends.</div>
-          <div class="note">Answering here re-runs the allocation straight away &mdash; check the Groups tab.</div>
-        </div>
-      </div>
-    </div>`;
+  /* opens the choice and writes nothing */
+  el("view-responses").querySelectorAll("[data-pick]").forEach((b) =>
+    b.onclick = () => {
+      state.respEditing = b.dataset.pick;
+      renderResponses();
+      const first = el("view-responses").querySelector(".st-choose .is-selected, .st-choose button");
+      if (first) first.focus();
+    });
+  el("view-responses").querySelectorAll("[data-set]").forEach((b) =>
+    b.onclick = () => setStatusByAdmin(Number(b.dataset.person), b.dataset.set));
 
-  const pickC = el("invite-child");
-  pickC.onchange = () => {
-    state.inviteChildId = Number(pickC.value);
-    state.inviteStep = "ask";
-    renderInvite();
-  };
-  const yes = () => answer(child, "accepted");
-  const no = () => answer(child, "declined");
-  ["say-yes", "mail-yes"].forEach((id) => { if (el(id)) el(id).onclick = yes; });
-  ["say-no", "mail-no"].forEach((id) => { if (el(id)) el(id).onclick = no; });
-  if (el("change-answer")) el("change-answer").onclick = () => {
-    ev().status.set(child.id, "none"); ev().answeredBy.delete(child.id); ev().answeredAt.delete(child.id);
-    state.inviteStep = "ask";
-    rerun(true, child.name + "'s answer was cleared"); renderAll();
+  const rs = el("resp-search");
+  if (rs) rs.oninput = () => {
+    respSearch = rs.value;
+    const at = rs.selectionStart;
+    renderResponses();
+    const ns = el("resp-search"); if (ns) { ns.focus(); ns.setSelectionRange(at, at); }
   };
 }
 
@@ -858,26 +826,32 @@ function renderInvite() {
 function renderGroups() {
   const e = ev(), t = team();
   // nothing to publish where nothing is allocated, so the button does not offer it
+  /* The same picker the Responses screen carries, so squads for an event can be reached
+     without going through the calendar to select it first. */
   const head = `<div class="page-head">
-      <div><h2>Squads</h2><div class="count">${eventTitle(e)} &middot; ${e.longDate} &middot; ${t.name}</div></div>
+      <div><h2>Squads</h2><div class="count">${t.name} &middot; who is with whom on the night</div></div>
       <div class="spacer"></div>
       ${isSocial(e) ? "" : `<button class="btn primary" id="publish-squads">${
-        e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button>`}</div>`;
+        e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button>`}</div>
+    ${eventPicker("squad-event", "Event")}`;
 
   if (!e.published) {
     el("view-groups").innerHTML = head + `<div class="alert notice"><b>This event is a draft.</b>
       Nobody has been invited, so there are no responses to allocate. Publish it on the calendar first.</div>`;
+    wireEventPicker("squad-event");
     return;
   }
   if (e.cancelled) {
     el("view-groups").innerHTML = head + `<div class="alert stop"><b>This event was cancelled.</b>
       ${esc(e.cancelled)}</div>`;
+    wireEventPicker("squad-event");
     return;
   }
   if (isSocial(e)) {
     el("view-groups").innerHTML = head + `<div class="alert"><b>Social events aren't allocated.</b>
       Everyone who said yes is coming to the same thing, so there are no squads to divide
-      them into. Answers are still collected, and you can see them on the invitation.</div>`;
+      them into. Answers are still collected, and you can see them on the Responses tab.</div>`;
+    wireEventPicker("squad-event");
     return;
   }
 
@@ -1004,6 +978,7 @@ function renderGroups() {
       <button class="link" id="show-noschool">show them in the member list</button></div>` : ""}
     <div class="groups" id="groups-grid">${cards}</div>`;
 
+  wireEventPicker("squad-event");
   wireSettings(); wireDragDrop();
   if (el("publish-squads")) el("publish-squads").onclick = () => {
     publishSquads(e, state.result);
@@ -1379,6 +1354,13 @@ function groupByMonth(list) {
 
 function renderFamily() {
   const me = signedIn();
+  /* the two personal tabs are only shown to a parent of a child in this age group, so
+     there is nothing to draw into them otherwise */
+  if (!isParentHere(me)) {
+    el("view-mycalendar").innerHTML = "";
+    el("view-myfamily").innerHTML = "";
+    return;
+  }
   const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
   const all = familyEvents(me);
 
@@ -1530,70 +1512,27 @@ function renderFamily() {
         <span class="alert-go">Take me there &#8594;</span></button>`
     : "";
 
-  /* Two tabs, and the tab is the heading: a page title saying "Your family" over a
-     tab saying the same thing says it twice. Calendar is what a parent came for, so
-     it is where they land. */
-  const tab = state.familyTab === "family" ? "family" : "calendar";
-  const tabBtn = (id, label) => `<button role="tab" id="ptab-${id}" class="ptab"
-      aria-controls="ppanel-${id}" aria-selected="${tab === id}"
-      tabindex="${tab === id ? "0" : "-1"}" data-ptab="${id}">${label}</button>`;
+  /* Two top-level tabs now, so there is no strip inside the page and no page title:
+     the tab in the app bar is the heading, and repeating it here would say it twice. */
+  el("view-mycalendar").innerHTML = `${banner}${chipRow}${body}`;
 
-  el("view-family").innerHTML = `
-    <div class="ptabs" role="tablist" aria-label="Your family">
-      ${tabBtn("calendar", "Calendar")}${tabBtn("family", "Your family")}
+  el("view-myfamily").innerHTML = `
+    <div class="side-card">
+      <h3>Your children</h3>
+      ${childCards}
     </div>
-    <div class="ppanel" role="tabpanel" id="ppanel-calendar" aria-labelledby="ptab-calendar"
-      tabindex="0" ${tab === "calendar" ? "" : "hidden"}>
-      ${banner}${chipRow}${body}
-    </div>
-    <div class="ppanel" role="tabpanel" id="ppanel-family" aria-labelledby="ptab-family"
-      tabindex="0" ${tab === "family" ? "" : "hidden"}>
-      <div class="side-card">
-        <h3>Your children</h3>
-        ${childCards}
+    <div class="side-card">
+      <div class="cr-top" style="margin-bottom:10px">
+        <h3 style="margin:0">Your details</h3>
+        <button class="linkbtn" data-fedit="${me.id}">Edit</button>
       </div>
-      <div class="side-card">
-        <div class="cr-top" style="margin-bottom:10px">
-          <h3 style="margin:0">Your details</h3>
-          <button class="linkbtn" data-fedit="${me.id}">Edit</button>
-        </div>
-        <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
-        <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
-        <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
-      </div>
+      <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
+      <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
+      <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
     </div>
     ${familyEditModal()}`;
 
   wireFamily(firstOwed);
-}
-
-/* Arrow keys move between the tabs and take the selection with them, which is the
-   pattern a screen reader user expects from a tablist. Tab itself leaves the strip
-   and lands in the panel, so there is one stop here, not two. */
-function wireParentTabs(root) {
-  const tabs = [...root.querySelectorAll("[data-ptab]")];
-  const show = (name, focus) => {
-    state.familyTab = name;
-    renderFamily();
-    if (focus) {
-      const again = el("view-family").querySelector(`[data-ptab="${name}"]`);
-      if (again) again.focus();
-    }
-  };
-  tabs.forEach((b, i) => {
-    b.onclick = () => show(b.dataset.ptab, false);
-    b.onkeydown = (e) => {
-      const last = tabs.length - 1;
-      let to = null;
-      if (e.key === "ArrowRight") to = i === last ? 0 : i + 1;
-      else if (e.key === "ArrowLeft") to = i === 0 ? last : i - 1;
-      else if (e.key === "Home") to = 0;
-      else if (e.key === "End") to = last;
-      if (to === null) return;
-      e.preventDefault();
-      show(tabs[to].dataset.ptab, true);
-    };
-  });
 }
 
 function familyEditModal() {
@@ -1691,8 +1630,12 @@ function trapTab(e) {
 }
 
 function wireFamily(firstOwed) {
-  const root = el("view-family");
-  wireParentTabs(root);
+  /* the two panels are separate tabs now, so anything wired here has to be looked for
+     across both of them */
+  const panels = [el("view-mycalendar"), el("view-myfamily")];
+  const root = {
+    querySelectorAll: (sel) => panels.flatMap((n) => [...n.querySelectorAll(sel)])
+  };
 
   const toggle = el("earlier-toggle");
   if (toggle) toggle.onclick = () => { state.familyShowEarlier = !state.familyShowEarlier; renderFamily(); };
@@ -1706,7 +1649,7 @@ function wireFamily(firstOwed) {
   const goto = el("goto-owed");
   if (goto && firstOwed) goto.onclick = () => {
     // the thing it counted may be hidden by the current filter, so clear it on the way
-    state.familyTab = "calendar";
+    showView("mycalendar");
     state.familyChild = "all";
     state.familyOpen.add(firstOwed.entry.event.id);
     state.familyTouchedRows = true;
@@ -1812,30 +1755,92 @@ function wireFamily(firstOwed) {
 
 /* ---------------- sign in, and the chrome that depends on it ---------------- */
 
+/* Six flat tabs, in one strip. The admin side had no tab structure written down
+   anywhere, and the parent's two views were nested a level deeper inside one of them.
+   Six is wide on a phone: the strip scrolls sideways, and whether that survives testing
+   is the open half of item 89 — a mode switch in the header is the fallback if it
+   doesn't. What it is not is a menu behind the signed-in name, per item 78. */
 const TABS = [
-  { id: "family", label: "My family", admin: false },
-  { id: "calendar", label: "Calendar", admin: true },
-  { id: "members", label: "Members", admin: true },
-  { id: "invite", label: "Invitation", admin: true },
-  { id: "groups", label: "Squads", admin: true }
+  { id: "calendar", label: "Calendar", who: "admin" },
+  { id: "members", label: "Members", who: "admin" },
+  { id: "responses", label: "Responses", who: "admin" },
+  { id: "groups", label: "Squads", who: "admin" },
+  { id: "mycalendar", label: "My calendar", who: "parent" },
+  { id: "myfamily", label: "My family", who: "parent" }
 ];
 
+/* The two personal tabs belong to a parent of a child in the team being looked at. An
+   admin who has no child in this age group has no family view of it to show. */
+function isParentHere(me) {
+  return (me.childIds || []).some((id) => {
+    const c = BY_ID.get(id);
+    return c && c.teamId === state.teamId;
+  });
+}
+
+function visibleTabs() {
+  const me = signedIn();
+  const admin = isAdmin(me), parent = isParentHere(me);
+  return TABS.filter((t) => t.who === "admin" ? admin : parent);
+}
+
 function showView(name) {
-  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.view === name));
+  state.view = name;
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    const on = b.dataset.view === name;
+    b.setAttribute("aria-selected", on);
+    b.tabIndex = on ? 0 : -1;      // one stop for the strip, not one per tab
+  });
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
+
+  /* Each screen opens on its own event the first time it is reached, and after that the
+     one the admin picked follows them from screen to screen. */
+  const t = team();
+  if (name === "responses" && !state.respDefaulted && !state.eventPicked) {
+    state.respDefaulted = true;
+    selectEvent(nextOutstandingEvent(t).id);
+    renderAll();
+  } else if (name === "groups" && !state.squadDefaulted && !state.eventPicked) {
+    state.squadDefaulted = true;
+    selectEvent(nextUnsquaddedEvent(t).id);
+    renderAll();
+  }
   window.scrollTo(0, 0);
+}
+
+/* A real tablist, as the parent's own strip was before these tabs were merged into it:
+   arrow keys move between the tabs and take the selection with them, Home and End jump
+   to the ends, and Tab leaves the strip for the panel rather than stepping through
+   every tab on the way. */
+function wireTabKeys() {
+  const tabs = [...el("tabs").querySelectorAll("button")];
+  tabs.forEach((b, i) => {
+    b.onkeydown = (e) => {
+      const last = tabs.length - 1;
+      let to = null;
+      if (e.key === "ArrowRight") to = i === last ? 0 : i + 1;
+      else if (e.key === "ArrowLeft") to = i === 0 ? last : i - 1;
+      else if (e.key === "Home") to = 0;
+      else if (e.key === "End") to = last;
+      if (to === null) return;
+      e.preventDefault();
+      showView(tabs[to].dataset.view);
+      const again = el("tabs").querySelector(`[data-view="${tabs[to].dataset.view}"]`);
+      if (again) again.focus();
+    };
+  });
 }
 
 function renderChrome() {
   const me = signedIn();
-  const admin = isAdmin(me);
-  const tabs = TABS.filter((t) => admin || !t.admin);
-  const order = admin ? tabs.slice(1).concat(tabs[0]) : tabs;
+  const tabs = visibleTabs();
 
-  el("tabs").innerHTML = order.map((t, i) =>
-    `<button role="tab" data-view="${t.id}" aria-selected="${i === 0}">${t.label}</button>`).join("");
-  el("tabs").hidden = order.length < 2;
+  el("tabs").innerHTML = tabs.map((t) =>
+    `<button role="tab" id="tab-${t.id}" data-view="${t.id}" aria-controls="view-${t.id}"
+       aria-selected="${t.id === state.view}" tabindex="${t.id === state.view ? "0" : "-1"}">${t.label}</button>`).join("");
+  el("tabs").hidden = tabs.length < 2;
   el("tabs").querySelectorAll("button").forEach((b) => { b.onclick = () => showView(b.dataset.view); });
+  wireTabKeys();
 
   const picker = el("team-pick");
   const mine = adminTeamsFor(me);
@@ -1843,13 +1848,17 @@ function renderChrome() {
   picker.innerHTML = mine.map((t) => `<option value="${t.id}">${t.name}</option>`).join("");
   if (mine.length) picker.value = state.teamId;
 
-  showView(order[0].id);
+  /* switching age group can take a tab away with it — a parent of a child in one group
+     and an admin of another has the personal tabs only on the one */
+  if (!tabs.some((t) => t.id === state.view)) showView(tabs[0].id);
+  else showView(state.view);
 }
 
 function signInAs(id) {
   state.signedInId = id;
   const me = signedIn();
   const home = (adminTeamsFor(me)[0] || teamsFor(me)[0] || TEAMS[0]).id;
+  state.view = null;
   selectTeam(home);
   el("signin").hidden = true;
   el("app").hidden = false;
@@ -1865,12 +1874,13 @@ function signOut() {
   state.editDraft = null;
   state.editErrorField = null;
   // view state belongs to the session that made it
-  state.familyTab = "calendar";
+  state.view = null;
   state.familyChild = "all";
   state.familyOpen = new Set();
   state.familyTouchedRows = false;
   state.familyShowEarlier = false;
   state.familyEditing = null;
+  state.eventPicked = false;
   el("app").hidden = true;
   el("signin").hidden = false;
   window.scrollTo(0, 0);
@@ -1892,7 +1902,11 @@ el("personas").innerHTML = PERSONAS.map((p) => {
 el("personas").querySelectorAll("[data-signin]").forEach((b) =>
   b.onclick = () => signInAs(Number(b.dataset.signin)));
 
-el("team-pick").onchange = () => { selectTeam(el("team-pick").value); renderAll(); };
+el("team-pick").onchange = () => {
+  selectTeam(el("team-pick").value);
+  renderChrome();     // the personal tabs are per age group, so the strip is rebuilt
+  renderAll();
+};
 
 el("whoami").onclick = () => { state.menuOpen ? closeUserMenu() : openUserMenu(); };
 

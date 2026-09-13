@@ -222,8 +222,6 @@ const PERSONAS = (function () {
   ];
 })();
 
-const SHARED_PARENT = { parent: BY_ID.get(PERSONAS[2].id) };
-
 /* ---- the season ------------------------------------------------------- */
 
 const MONTHS = ["January", "February", "March", "April", "May", "June",

@@ -386,17 +386,25 @@ The name is a control. Behind it sits a menu holding **Sign out, and nothing els
 shared between two parents the name is worth keeping in sight, because it says whose answers
 these are.
 
-The parent's view carries two tabs of its own: **Calendar** and **Your family**. Calendar is
-where a parent lands, and holds the outstanding-answers banner, the child filter chips, the
-earlier-events collapse and the list. Your family holds the two personal cards, Your children
-and Your details, stacked. The tabs are the same at every width, and the right sidebar those
-cards used to sit in is gone — on a wide screen they take the width the calendar list takes.
+Under the header sits one tab strip, carrying six tabs: **Calendar, Members, Responses,
+Squads, My calendar** and **My family**. The first four are the admin side — the season
+schedule and where events are created and published; the team's people; who has answered a
+given event; and the allocation. The last two are the parent's own view, and are shown only to
+an adult who is a parent of a child in the team being looked at. The strip is sticky at every
+scroll position, because it is how everything is reached. A page title and the action buttons
+under it are not sticky: they belong to the screen rather than to the app.
+
+**My calendar** is where a parent lands, and holds the outstanding-answers banner, the child
+filter chips, the earlier-events collapse and the list. **My family** holds the two personal
+cards, Your children and Your details, stacked. The tabs are the same at every width, and the
+right sidebar those cards used to sit in is gone — on a wide screen they take the width the
+calendar list takes.
 
 This supersedes the earlier note that there is no hamburger because there is nothing to
-navigate to. There now is: two places, named, in the page rather than behind the name. What the
+navigate to. There now is: places, named, in the page rather than behind the name. What the
 menu held was navigation wearing a menu's clothes, reachable only by opening something that
-looked like an account control. The tab strip is the heading as well, so there is no page title
-repeating what the selected tab already says.
+looked like an account control. On the parent's two tabs the strip is the heading as well, so
+there is no page title repeating what the selected tab already says.
 
 The tabs are a tablist: arrow keys move between them and take the selection with them, Home and
 End jump to the ends, and Tab leaves the strip for the panel rather than stepping through every
