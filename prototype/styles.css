@@ -398,7 +398,7 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 
 /* ---- a parent's own view, desktop first ---- */
 .family { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 22px; align-items: start; }
-@media (max-width: 900px) { .family { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .family { grid-template-columns: minmax(0, 1fr); } }
 
 .ev-when { flex: none; width: 58px; text-align: center; border-radius: 10px; padding: 8px 4px; }
 .ev-when .dd { font-size: 21px; font-weight: 700; line-height: 1; }
@@ -467,7 +467,7 @@ main { overflow-x: hidden; }
 .fev.is-cancelled { border-left-color: var(--stop); }
 .fev-head { display: flex; align-items: center; gap: 14px; padding: 13px 16px; width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .fev-head:hover { background: var(--surface-2); }
-.fev-main { flex: 1; min-width: 0; }
+.fev-main { flex: 1 1 auto; min-width: 0; }
 .fev-title { display: block; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
 .fev-sub { display: block; font-size: 13.5px; color: var(--muted); margin-top: 3px; }
 .fev-tags { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
@@ -549,8 +549,12 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } .toast.out { transition: none; } }
 
-/* ---- statuses line up in their own column down the list ---- */
-.fev-tags { width: 168px; flex: none; }
+/* ---- statuses line up in their own column down the list ----
+   A preferred width, not a fixed one: where there is room every row's statuses
+   start on the same line, and on a phone the column gives way to the title
+   rather than pushing the row wider than the screen. It stops shrinking at its
+   own content, so a status never wraps away from the name it belongs to. */
+.fev-tags { flex: 0 1 168px; }
 .fev-tags.one { justify-content: center; align-items: flex-end; }
 .fev-tags.stacked { flex-direction: column; align-items: flex-end; justify-content: center; gap: 7px; }
 .fev-tags .st-pair { justify-content: flex-end; }
