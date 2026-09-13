@@ -259,7 +259,13 @@ tbody tr:last-child td { border-bottom: 0; }
 /* ---- event header + stats ---- */
 .event-head { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
 .event-head .when { font-size: 19px; font-weight: 700; }
-.meta { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; }
+/* The meta pairs are short values and they belong tight together, not spread across a
+   wide card — so they keep their natural width and the deadline block takes the space
+   on the right that they were leaving empty. Below 760px they stack. */
+.evgrid { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; margin-top: 14px; }
+.evfacts { flex: 1 1 340px; min-width: 0; }
+.evgrid > .deadline-bar { flex: 1 1 320px; margin: 0; }
+.meta { display: flex; gap: 22px; flex-wrap: wrap; }
 .meta div { font-size: 13.5px; }
 .meta .k { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 650; }
 
@@ -374,9 +380,25 @@ tbody tr:last-child td { border-bottom: 0; }
 
 /* ---- groups ---- */
 .settings { margin-bottom: 14px; }
-.set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.settings-fold { margin-bottom: 14px; }
+.settings-fold > summary {
+  cursor: pointer; list-style: none; display: flex; gap: 12px; align-items: baseline;
+  padding: 11px 18px; font-size: 13px; flex-wrap: wrap;
+}
+.settings-fold > summary::-webkit-details-marker { display: none; }
+.settings-fold > summary::after {
+  content: "change"; margin-left: auto; font-size: 12.5px; color: var(--muted); text-decoration: underline;
+}
+.settings-fold[open] > summary::after { content: "done"; }
+.settings-fold .sf-k { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+.settings-fold .sf-v { color: var(--muted); }
+.settings-fold[open] > summary { border-bottom: 1px solid var(--surface-2); margin-bottom: 14px; }
+/* One flowing set that wraps where the width runs out. The coach-with-own-child
+   control ends up on a line of its own because it is the widest, not because it was
+   put in a group of its own. */
+.set-grid { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-start; padding: 0 18px 18px; }
+.set-grid input[type="number"] { width: 5.5em; }
 .set-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
-.set-grid .set-wide { grid-column: 1 / -1; }
 .set-hint { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 12.5px; color: var(--muted); }
 .segset { display: inline-flex; gap: 0; align-self: flex-start; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .segbtn {
@@ -408,6 +430,33 @@ details.why summary { cursor: pointer; font-size: 13.5px; color: var(--brand); f
 .alert.owed { background: var(--warn-bg); color: var(--warn-ink); border-left: 3px solid var(--warn); }
 .alert.ok { background: var(--ok-bg); color: var(--ok-ink); border-left: 3px solid var(--ok); }
 button.link { background: none; border: 0; font: inherit; font-size: 12.5px; color: inherit; text-decoration: underline; cursor: pointer; padding: 0 0 0 6px; }
+
+/* ---- one band between the page header and Squad 1 ----
+   The summary, the advisories, the rules and the drag notice used to be six blocks an
+   admin scrolled past on every visit. One line when the night is fine; open, with the
+   failures first, when it is not. */
+.sqband { background: var(--surface); border-radius: 9px; box-shadow: var(--shadow); margin-bottom: 16px; }
+details.sqband > summary {
+  cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: baseline;
+  padding: 12px 15px; font-size: 13.5px; flex-wrap: wrap;
+}
+details.sqband > summary::-webkit-details-marker { display: none; }
+details.sqband > summary::after { content: "show all"; margin-left: auto; font-size: 12.5px; color: var(--muted); text-decoration: underline; }
+details.sqband[open] > summary::after { content: "hide"; }
+details.sqband > summary .mark { color: var(--ok); font-weight: 700; }
+details.sqband > summary .d { color: var(--muted); font-size: 12.5px; }
+details.sqband > *:not(summary) { padding: 0 15px; }
+details.sqband > *:not(summary):last-child { padding-bottom: 14px; }
+.sqband.loud { padding: 12px 15px 14px; display: grid; gap: 8px; }
+.sqband .bandlead { font-size: 14px; }
+.sqband .check { box-shadow: none; background: var(--surface-2); }
+.sqband .alert { margin-bottom: 0; }
+.sqband .bandnote {
+  border-left: 3px solid var(--notice-line); padding-left: 12px; margin: 12px 0 0;
+  font-size: 13px; color: var(--muted);
+}
+.bandmore > summary { cursor: pointer; font-size: 13px; color: var(--muted); text-decoration: underline; }
+details.sqband .check-list, details.sqband .why, details.sqband .alert { margin-top: 10px; }
 
 /* One line while everything passes, with the detail available on demand; the failures
    themselves when there are any. */
@@ -455,6 +504,12 @@ button.link { background: none; border: 0; font: inherit; font-size: 12.5px; col
 .spread .sp3 { background: var(--r3); } .spread .sp4 { background: var(--r4); }
 .spread .sp5 { background: var(--r5); }
 .group .section { padding: 0 15px 13px; }
+/* A hairline between the header, the coaches and the players, so the three parts of a
+   card read as three parts. The rows' hover bleed moves up to the wrapper, because a
+   row that is wider than its own container is a row that overflows it. */
+.group .sqpart { margin: 0 -5px; padding: 0 5px; }
+.group .sqpart .person { margin: 0; }
+.group .sqpart + .sqpart { border-top: 1px solid var(--surface-2); margin-top: 10px; padding-top: 2px; }
 .group .section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 12px 0 7px; font-weight: 700; }
 .group.bad { outline: 2px solid var(--stop); outline-offset: -1px; }
 .group.over { outline: 2px dashed var(--brand); outline-offset: -1px; background: var(--brand-soft); }
@@ -538,6 +593,26 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .field .hint { font-size: 12px; color: var(--muted); }
 .field .err { font-size: 12.5px; color: var(--stop); font-weight: 600; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+
+/* ---- the event dialog: new, edit, publish, cancel ---- */
+.modal.modal-wide { max-width: 560px; }
+.field > label.checkline, .checkline { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13.5px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 400; }
+.checkline input { width: auto; accent-color: var(--brand); }
+.btn.danger { background: var(--stop-bg); border-color: var(--stop); color: var(--stop-ink); font-weight: 700; }
+.btn.danger:hover { border-color: var(--stop); background: var(--stop); color: var(--surface); }
+
+.picklist { max-height: 230px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px 0; }
+.pickhead { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; padding: 8px 12px 4px; }
+.pickline { display: flex; align-items: center; gap: 9px; padding: 5px 12px; font-size: 13.5px; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink); }
+.pickline:hover { background: var(--surface-2); }
+.pickline input { width: auto; accent-color: var(--brand); }
+.pickline .pn { flex: 1; }
+.pickline .pk { font-size: 11.5px; color: var(--muted); }
+.pickline.is-off .pn { color: var(--muted); text-decoration: line-through; }
+
+.sharebox { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.sharetext { flex: 1 1 240px; background: var(--surface-2); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--surface-2); }
 
 .alert.info { background: var(--brand-soft); color: var(--brand-soft-ink); border-left: 3px solid var(--brand); }
@@ -620,7 +695,7 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
   display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap;
   background: var(--surface-2); border-radius: 10px; padding: 12px 14px; margin: 14px 0 4px;
 }
-.deadline-bar > div:first-child { flex: 1; min-width: 260px; }
+.deadline-bar > div:first-child { flex: 1 1 200px; min-width: 0; }
 .deadline-bar .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
 .dl-main { font-size: 14.5px; font-weight: 650; margin: 2px 0 5px; }
 .dl-open { color: var(--ink); font-weight: 600; } .dl-closed { color: var(--muted); font-weight: 600; }

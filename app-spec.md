@@ -397,8 +397,12 @@ Squads, My calendar** and **My family**. The first four are the admin side — t
 schedule and where events are created and published; the team's people; who has answered a
 given event; and the allocation. The last two are the parent's own view, and are shown only to
 an adult who is a parent of a child in the team being looked at. The strip is sticky at every
-scroll position, because it is how everything is reached. A page title and the action buttons
+scroll position, because it is how everything is reached. The subline and the action buttons
 under it are not sticky: they belong to the screen rather than to the app.
+
+No screen carries a page title, because the selected tab is the heading. What sits under the
+strip is the subline that says what the tab does not — the counts, the age group, the
+qualifier.
 
 **My calendar** is where a parent lands, and holds the outstanding-answers banner, the child
 filter chips, the earlier-events collapse and the list. **My family** holds the two personal
@@ -409,8 +413,8 @@ calendar list takes.
 This supersedes the earlier note that there is no hamburger because there is nothing to
 navigate to. There now is: places, named, in the page rather than behind the name. What the
 menu held was navigation wearing a menu's clothes, reachable only by opening something that
-looked like an account control. On the parent's two tabs the strip is the heading as well, so
-there is no page title repeating what the selected tab already says.
+looked like an account control. The strip is the heading on every tab, so no screen repeats
+what the selected tab already says.
 
 The tabs are a tablist: arrow keys move between them and take the selection with them, Home and
 End jump to the ends, and Tab leaves the strip for the panel rather than stepping through every

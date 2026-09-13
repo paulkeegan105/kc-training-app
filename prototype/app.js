@@ -52,6 +52,7 @@ const state = {
   calOpen: new Set(),       // calendar rows open and close on their own — item 81
   calTouched: false,        // once an admin opens or closes one, stop choosing for them
   calShowEarlier: false,    // the season before the next event, collapsed
+  squadSettingsOpen: false, // set once a season, so folded away by default
   view: null,
   settings: null,
   mode: null,
@@ -65,7 +66,10 @@ const state = {
   squadDefaulted: false,
   rerunNotice: null,
   editingId: null,
-  editError: ""
+  editError: "",
+  /* the event dialog: one component, four jobs — new, edit, publish, cancel */
+  evDialog: null,           // { mode, eventId, draft, errorField, error, returnTo }
+  evDeselected: null        // Set of person ids an admin has taken off a publish
 };
 
 const signedIn = () => BY_ID.get(state.signedInId);
@@ -336,16 +340,20 @@ function renderCalendar() {
           ${e.draft ? `<div class="alert notice" style="margin-top:14px"><b>This is a draft.</b>
             No member can see it, it can still be edited freely and it can be deleted outright.
             Publishing is what sends the invitations, to every child and every flagged coach.</div>` : ""}
+          <div class="evgrid">
+          <div class="evfacts">
           <div class="meta">
             <div><div class="k">Type</div>${e.type}</div>
-            <div><div class="k">Meet</div>${e.meetTime}</div>
+            ${e.meetTime ? `<div><div class="k">Meet</div>${e.meetTime}</div>` : ""}
             <div><div class="k">Duration</div>${e.duration} min</div>
             <div><div class="k">Venue</div>${esc(e.venue)}</div>
-            ${e.opposition ? `<div><div class="k">Opposition</div>${esc(e.opposition)}</div>` : ""}
+            ${e.opposition ? `<div><div class="k">Opposition</div>${esc(e.opposition)}${
+              e.away ? " (away)" : ""}</div>` : ""}
             ${isSocial(e) ? "" : `<div><div class="k">Mode</div>${
               e.mode === "ability" ? "Balanced ability" : "School affinity"}</div>`}
           </div>
           ${venueBlock(e, true)}
+          </div>
           ${e.published && !e.cancelled ? `<div class="deadline-bar">
             <div>
               <div class="k">Response deadline</div>
@@ -359,16 +367,20 @@ function renderCalendar() {
               <span class="sub">team default ${TEAM_BY_ID.get(e.teamId).settings.deadlineHours}</span>
             </label>
           </div>` : ""}
+          </div>
           ${e.published && !e.cancelled ? `<div class="mini-stats">
             <div class="accepted"><b>${counts[0]}</b> accepted</div>
             <div class="declined"><b>${counts[1]}</b> declined</div>
             <div><b>${counts[2]}</b> no response</div>
           </div>` : ""}
           <div class="toolbar" style="margin:0 0 4px">
-            ${e.draft ? `<button class="btn primary" data-publish="${e.id}">Publish and invite</button>
-              <button class="btn" data-delete="${e.id}">Delete</button>` : ""}
+            ${e.draft ? `<button class="btn primary" data-publish="${e.id}">Publish and invite</button>` : ""}
             ${e.published && !e.cancelled
               ? `<button class="btn" data-go-responses="${e.id}">See who has answered</button>` : ""}
+            <button class="btn" data-edit-event="${e.id}">Edit</button>
+            ${e.draft ? `<button class="btn" data-delete="${e.id}">Delete</button>` : ""}
+            ${e.published && !e.cancelled
+              ? `<button class="btn" data-cancel-event="${e.id}">Cancel event</button>` : ""}
           </div>
         </div>` : ""}
       </div>`;
@@ -417,16 +429,27 @@ function renderCalendar() {
 
   el("view-calendar").innerHTML = `
     <div class="page-head">
-      <div><h2>Season calendar</h2>
-        <div class="count">${t.name} &middot; ${plural(t.events.length, "event", "events")} &middot;
-          ${t.events.filter((e) => e.draft).length} in draft</div></div>
+      <div class="count">${t.name} &middot; ${plural(t.events.length, "event", "events")} &middot;
+        ${t.events.filter((e) => e.draft).length} in draft</div>
       <div class="spacer"></div>
-      <button class="btn">Import CSV</button>
-      <button class="btn primary">New event</button>
+      <button class="btn" id="import-csv" title="Not built — the CSV columns are undecided, see item 35">Import CSV</button>
+      <button class="btn primary" id="new-event">New event</button>
     </div>
     ${body}
     <div class="notice">A draft is invisible to members and can be deleted. Once published it can only be
-      cancelled, which asks for a reason and notifies everyone.</div>`;
+      cancelled, which asks for a reason and notifies everyone.</div>
+    ${eventDialogMarkup()}`;
+
+  wireEventDialog();
+  if (el("new-event")) el("new-event").onclick = () => openEventDialog("new", null, "#new-event");
+  if (el("import-csv")) el("import-csv").onclick = () =>
+    toast("Not built. The CSV columns are still undecided — open question 35.");
+  el("view-calendar").querySelectorAll("[data-edit-event]").forEach((b) =>
+    b.onclick = () => openEventDialog("edit", b.dataset.editEvent,
+      '[data-edit-event="' + b.dataset.editEvent + '"]'));
+  el("view-calendar").querySelectorAll("[data-cancel-event]").forEach((b) =>
+    b.onclick = () => openEventDialog("cancelevent", b.dataset.cancelEvent,
+      '[data-cancel-event="' + b.dataset.cancelEvent + '"]'));
 
   const earlierToggle = el("cal-earlier-toggle");
   if (earlierToggle) earlierToggle.onclick = () => {
@@ -450,13 +473,10 @@ function renderCalendar() {
       const after = el("evrow-" + id);
       if (after) window.scrollBy(0, after.getBoundingClientRect().top - before);
     });
+  /* publishing is a step of its own, with the deselection and the share link on it */
   el("view-calendar").querySelectorAll("[data-publish]").forEach((b) =>
-    b.onclick = () => {
-      const e2 = eventById(b.dataset.publish);
-      publishEvent(e2);
-      if (e2.id === state.eventId) rerun();
-      renderAll();
-    });
+    b.onclick = () => openEventDialog("publish", b.dataset.publish,
+      '[data-publish="' + b.dataset.publish + '"]'));
   el("view-calendar").querySelectorAll("[data-delete]").forEach((b) =>
     b.onclick = () => {
       const t2 = team(), e2 = eventById(b.dataset.delete);
@@ -483,11 +503,406 @@ function renderCalendar() {
     });
 }
 
-function publishEvent(e) {
+/* ---------------- creating, editing, publishing and cancelling an event ----------------
+
+   One dialog does all four, because they are four states of the same object and an
+   admin reaches all four from the same row. It follows the Forms and dialogs rules:
+   focus in on open and back to the opener on close, Tab trapped, Escape closes, a
+   validation failure keeps what was typed with the message under the field it
+   concerns, and every save confirms.                                                 */
+
+const EVENT_TYPES = [
+  ["Training", "Training"], ["Game", "Match"], ["Blitz", "Blitz"], ["Social", "Social"]
+];
+let newEventSeq = 0;
+
+/* A new event inherits the team's duration and deadline — which is what "defaults to
+   the team's setting" means: overridable here, and the team's own settings untouched. */
+function blankEventDraft(t) {
+  const start = new Date(NOW.getTime() + 7 * 86400000);
+  return {
+    type: "Training", date: isoOf(start), time: "18:30",
+    venue: VENUE_NAMES[0], meetTime: "", opposition: "", title: "",
+    duration: String(t.settings.duration || 75),
+    deadlineHours: String(t.settings.deadlineHours),
+    away: false, repeat: "once", weeks: "6"
+  };
+}
+
+function eventToDraft(e) {
+  return {
+    type: e.type, date: e.date, time: e.time,
+    venue: e.venue, meetTime: e.meetTime || "", opposition: e.opposition || "",
+    title: e.title || "",
+    duration: String(e.duration),
+    deadlineHours: String(deadlineHoursFor(e)),
+    away: !!e.away, repeat: "once", weeks: "6"
+  };
+}
+
+function openEventDialog(mode, eventId, triggerSelector) {
+  const t = team();
+  const e = eventId ? eventById(eventId) : null;
+  state.evDialog = {
+    mode, eventId: eventId || null,
+    draft: mode === "new" ? blankEventDraft(t) : (e ? eventToDraft(e) : blankEventDraft(t)),
+    reason: "", errorField: null, error: "", returnTo: triggerSelector || null
+  };
+  if (mode === "publish") state.evDeselected = new Set();
+  renderCalendar();
+  const first = document.querySelector("#ev-backdrop select, #ev-backdrop input");
+  if (first) first.focus();
+}
+
+function closeEventDialog() {
+  const back = state.evDialog && state.evDialog.returnTo;
+  state.evDialog = null;
+  state.evDeselected = null;
+  renderCalendar();
+  const trigger = back && document.querySelector(back);
+  if (trigger) trigger.focus();
+}
+
+/* what the form is carrying right now, so a validation failure never costs the rest */
+function readEventForm() {
+  /* a field the current type or repeat does not show is absent from the DOM, so fall
+     back to what the draft already holds rather than blanking it */
+  const prev = (state.evDialog && state.evDialog.draft) || {};
+  const g = (id, key) => { const n = el(id); return n ? n.value : (prev[key] !== undefined ? prev[key] : ""); };
+  return {
+    type: g("ev-type", "type"), date: g("ev-date", "date"), time: g("ev-time", "time"),
+    venue: g("ev-venue", "venue"), meetTime: g("ev-meet", "meetTime"),
+    opposition: g("ev-opp", "opposition"), title: g("ev-title", "title"),
+    duration: g("ev-duration", "duration"), deadlineHours: g("ev-deadline", "deadlineHours"),
+    away: el("ev-away") ? el("ev-away").checked : !!prev.away,
+    repeat: el("ev-repeat") ? el("ev-repeat").value : (prev.repeat || "once"),
+    weeks: g("ev-weeks", "weeks")
+  };
+}
+
+function eventFormFields(d, bad, errFor, aria) {
+  const t = team();
+  const isGame = d.type === "Game";
+  const isNamed = d.type === "Blitz" || d.type === "Social";
+  return `
+    <div class="row2">
+      <div class="field${bad("type")}"><label for="ev-type">Type</label>
+        <select id="ev-type">${EVENT_TYPES.map(([v, l]) =>
+          `<option value="${v}" ${d.type === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field${bad("venue")}"><label for="ev-venue">Venue</label>
+        <select id="ev-venue"${aria("venue")}>${VENUE_NAMES.map((v) =>
+          `<option value="${esc(v)}" ${d.venue === v ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>
+        ${errFor("venue")}</div>
+    </div>
+    <div class="row2">
+      <div class="field${bad("date")}"><label for="ev-date">Date</label>
+        <input id="ev-date" type="date" value="${esc(d.date)}"${aria("date")}>${errFor("date")}</div>
+      <div class="field${bad("time")}"><label for="ev-time">Start time</label>
+        <input id="ev-time" type="time" value="${esc(d.time)}"${aria("time")}>${errFor("time")}</div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="ev-meet">Meet time</label>
+        <input id="ev-meet" type="time" value="${esc(d.meetTime)}">
+        <div class="hint">Optional.</div></div>
+      <div class="field${bad("duration")}"><label for="ev-duration">Duration</label>
+        <input id="ev-duration" type="number" min="15" max="480" step="5" value="${esc(d.duration)}"${aria("duration")}>
+        ${errFor("duration")}
+        <div class="hint">Minutes. The team's default is ${t.settings.duration || 75}.</div></div>
+    </div>
+    ${isGame ? `<div class="field"><label for="ev-opp">Opposition</label>
+        <input id="ev-opp" value="${esc(d.opposition)}" placeholder="Cuala">
+        <label class="checkline"><input type="checkbox" id="ev-away" ${d.away ? "checked" : ""}>
+          <span>Away fixture</span></label>
+        <div class="hint">Optional.</div></div>`
+      : `<input type="hidden" id="ev-opp" value="${esc(d.opposition)}">`}
+    ${isNamed ? `<div class="field"><label for="ev-title">Name</label>
+        <input id="ev-title" value="${esc(d.title)}" placeholder="${
+          d.type === "Blitz" ? "Cuala, Naomh Olaf and Ballinteer" : "Halloween party"}">
+        <div class="hint">Optional. It follows the type in the title on every row.</div></div>`
+      : `<input type="hidden" id="ev-title" value="${esc(d.title)}">`}
+    <div class="field${bad("deadlineHours")}"><label for="ev-deadline">Response deadline</label>
+      <input id="ev-deadline" type="number" min="1" max="336" value="${esc(d.deadlineHours)}"${aria("deadlineHours")}>
+      ${errFor("deadlineHours")}
+      <div class="hint">Hours before the start. The team's default is ${t.settings.deadlineHours}.
+        Nothing locks when it passes &mdash; it says when an answer is wanted.</div></div>`;
+}
+
+function eventDialogMarkup() {
+  const dlg = state.evDialog;
+  if (!dlg) return "";
+  const d = dlg.draft;
+  const bad = (f) => dlg.errorField === f ? " has-error" : "";
+  const errFor = (f) => dlg.errorField === f
+    ? `<div class="err" id="everr-${f}">${esc(dlg.error)}</div>` : "";
+  const aria = (f) => dlg.errorField === f
+    ? ` aria-invalid="true" aria-describedby="everr-${f}"` : "";
+  const e = dlg.eventId ? eventById(dlg.eventId) : null;
+
+  const shell = (title, sub, body, actions) => `
+    <div class="modal-backdrop" id="ev-backdrop"><div class="modal modal-wide" role="dialog"
+      aria-modal="true" aria-labelledby="ev-dlg-title">
+      <h3 id="ev-dlg-title">${title}</h3>
+      <div class="msub">${sub}</div>
+      ${body}
+      ${actions}</div></div>`;
+
+  if (dlg.mode === "new") {
+    return shell("New event",
+      esc(team().name) + " &middot; it starts as a draft, so nobody is invited yet",
+      eventFormFields(d, bad, errFor, aria) + `
+      <div class="field${bad("weeks")}"><label for="ev-repeat">Repeat</label>
+        <select id="ev-repeat">
+          <option value="once" ${d.repeat === "once" ? "selected" : ""}>Once</option>
+          <option value="weekly" ${d.repeat === "weekly" ? "selected" : ""}>Weekly</option>
+        </select>
+        ${d.repeat === "weekly"
+          ? `<input id="ev-weeks" type="number" min="2" max="12" value="${esc(d.weeks)}"
+               aria-label="How many weeks"${aria("weeks")}>
+             ${errFor("weeks")}
+             <div class="hint"><b>Each week becomes its own event, independent from the moment it
+               is created.</b> Editing or cancelling one changes no other, and there is no series to
+               edit afterwards. Up to 12 weeks.</div>`
+          : `<div class="hint">A weekly repeat creates up to 12 separate events, each independent
+               once created.</div>`}
+      </div>`,
+      `<div class="modal-actions">
+        <button class="btn" id="ev-cancel">Cancel</button>
+        <button class="btn primary" id="ev-save">Create draft</button></div>`);
+  }
+
+  if (dlg.mode === "edit") {
+    return shell("Edit event",
+      eventTitle(e) + " &middot; " + esc(e.longDate) + (e.draft ? " &middot; draft" : " &middot; published"),
+      (e.published ? `<div class="alert notice" style="margin-bottom:14px">This event is published.
+        Everyone invited already has it, and an edit does not re-send the invitation.</div>` : "")
+      + eventFormFields(d, bad, errFor, aria),
+      `<div class="modal-actions">
+        <button class="btn" id="ev-cancel">Cancel</button>
+        <button class="btn primary" id="ev-save">Save changes</button></div>`);
+  }
+
+  if (dlg.mode === "publish") {
+    const t = team();
+    const kids = t.people.filter((p) => p.type === "child").slice().sort(bySurname);
+    const coaches = t.people.filter((p) => p.type === "adult" && p.coachIn[t.id]).slice().sort(bySurname);
+    const off = state.evDeselected || new Set();
+    const row = (p, kind) => `<label class="pickline${off.has(p.id) ? " is-off" : ""}">
+        <input type="checkbox" data-invite="${p.id}" ${off.has(p.id) ? "" : "checked"}>
+        <span class="pn">${esc(p.name)}</span>
+        <span class="pk">${kind}</span></label>`;
+    const total = kids.length + coaches.length;
+    const going = total - off.size;
+    const share = "Kilmacud Crokes " + typeWord(e) + " — " + e.dayName + " " + e.shortDate
+      + ", " + e.time + " at " + e.venue + ". Please answer in the app.";
+    return shell("Publish and invite",
+      eventTitle(e) + " &middot; " + esc(e.longDate),
+      `<div class="alert notice" style="margin-bottom:14px">Publishing sends the invitation email to
+        <b>${going}</b> of ${total} &mdash; every child and every flagged coach, unless you take
+        somebody off below. Once published, cancelling is the only way to withdraw it.</div>
+      <div class="field"><label>Who gets invited</label>
+        <div class="picklist">
+          <div class="pickhead">Children (${kids.length})</div>
+          ${kids.map((p) => row(p, "child")).join("")}
+          <div class="pickhead">Coaches (${coaches.length})</div>
+          ${coaches.map((p) => row(p, "coach")).join("")}
+        </div></div>
+      <div class="field"><label>Also share to WhatsApp</label>
+        <div class="sharebox">
+          <div class="sharetext">${esc(share)}</div>
+          <button class="btn" type="button" id="ev-share">Copy for WhatsApp</button>
+        </div>
+        <div class="hint">A share, not a channel. Nothing comes back through it and nothing is
+          tracked through it &mdash; email is the record that reaches everyone.</div></div>`,
+      `<div class="modal-actions">
+        <button class="btn" id="ev-cancel">Cancel</button>
+        <button class="btn primary" id="ev-save">Publish and invite ${going}</button></div>`);
+  }
+
+  if (dlg.mode === "cancelevent") {
+    return shell("Cancel this event",
+      eventTitle(e) + " &middot; " + esc(e.longDate),
+      `<div class="alert stop" style="margin-bottom:14px">Everyone invited is notified, and the event
+        stays on the calendar with the reason you give.</div>
+      <div class="field${bad("reason")}"><label for="ev-reason">Reason</label>
+        <input id="ev-reason" value="${esc(dlg.reason || "")}" placeholder="Pitch waterlogged"${aria("reason")}>
+        ${errFor("reason")}
+        <div class="hint">Every parent sees this on the event.</div></div>`,
+      `<div class="modal-actions">
+        <button class="btn" id="ev-cancel">Keep the event</button>
+        <button class="btn danger" id="ev-save">Cancel the event</button></div>`);
+  }
+  return "";
+}
+
+/* recompute everything a row and the calendar feed read off a date, a time and a
+   duration, so an edit never leaves a stale end time or day name behind */
+function stampEvent(e) {
+  e.endTime = addMinutes(e.time, e.duration);
+  e.longDate = longDate(e.date);
+  e.shortDate = shortDate(e.date);
+  e.dayName = DAYS[parseDate(e.date).getDay()];
+  e.past = e.date < TODAY;
+  e.social = e.type === "Social";
+}
+
+function applyDraftTo(e, d) {
+  e.type = d.type;
+  e.date = d.date;
+  e.time = d.time;
+  e.duration = Number(d.duration);
+  e.venue = d.venue;
+  e.meetTime = d.meetTime || "";
+  e.opposition = d.type === "Game" ? ((d.opposition || "").trim() || null) : null;
+  e.away = d.type === "Game" ? !!d.away : false;
+  e.title = (d.type === "Blitz" || d.type === "Social") ? ((d.title || "").trim() || null) : null;
+  e.deadlineHours = Math.max(1, Math.min(336, Number(d.deadlineHours) || 24));
+  stampEvent(e);
+}
+
+function newEventFrom(t, d, offsetWeeks) {
+  const start = parseDate(d.date);
+  start.setDate(start.getDate() + offsetWeeks * 7);
+  const e = {
+    id: t.id + "-new-" + (++newEventSeq), teamId: t.id, key: null,
+    type: d.type, title: null, date: isoOf(start), time: d.time,
+    duration: Number(d.duration), meetTime: "", venue: d.venue,
+    opposition: null, away: false,
+    published: false, draft: true, cancelled: null,
+    mode: t.mode, squadsPlanned: false,
+    status: new Map(), answeredBy: new Map(), answeredAt: new Map()
+  };
+  applyDraftTo(e, Object.assign({}, d, { date: isoOf(start) }));
+  return e;
+}
+
+const byDateThenTime = (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
+
+function saveEventDialog() {
+  const dlg = state.evDialog;
+  if (!dlg) return;
+  const t = team();
+
+  const failWith = (field, message, focusId) => {
+    dlg.errorField = field; dlg.error = message;
+    renderCalendar();
+    const n = el(focusId || ("ev-" + field));
+    if (n) n.focus();
+  };
+  const finish = (message, reason) => {
+    const e = dlg.eventId ? eventById(dlg.eventId) : null;
+    const returnTo = dlg.returnTo;
+    state.evDialog = null; state.evDeselected = null;
+    toast(message);
+    if (reason && e && e.id === state.eventId) rerun(true, reason);
+    renderAll();
+    /* the control that opened the dialog may not exist any more — publishing removes
+       the Publish button — so fall back to the row it belonged to */
+    const backTo = (returnTo && document.querySelector(returnTo))
+      || (e && document.querySelector('[data-event="' + e.id + '"]'));
+    if (backTo) backTo.focus();
+  };
+
+  if (dlg.mode === "cancelevent") {
+    dlg.reason = el("ev-reason").value;
+    if (!dlg.reason.trim()) return failWith("reason", "Give a reason. Every parent sees it.", "ev-reason");
+    const e = eventById(dlg.eventId);
+    e.cancelled = dlg.reason.trim().replace(/([^.!?])$/, "$1.");
+    return finish("Cancelled. Everyone invited has been notified.", "the event was cancelled");
+  }
+
+  if (dlg.mode === "publish") {
+    const e = eventById(dlg.eventId);
+    publishEvent(e, state.evDeselected || new Set());
+    const n = e.status.size;
+    return finish("Published. " + plural(n, "invitation", "invitations") + " sent.",
+      "the event was published");
+  }
+
+  /* new and edit share one validation pass */
+  const d = readEventForm();
+  dlg.draft = d;
+  if (!d.date) return failWith("date", "Give the event a date.");
+  if (!d.time) return failWith("time", "Give the event a start time.");
+  if (!d.venue) return failWith("venue", "Pick a venue from the club's list.");
+  const dur = Number(d.duration);
+  if (!dur || dur < 15 || dur > 480) return failWith("duration", "A duration between 15 and 480 minutes.");
+  const dh = Number(d.deadlineHours);
+  if (!dh || dh < 1 || dh > 336) {
+    return failWith("deadlineHours", "Between 1 and 336 hours before the start.", "ev-deadline");
+  }
+
+  if (dlg.mode === "new") {
+    const weeks = d.repeat === "weekly" ? Number(d.weeks) : 1;
+    if (d.repeat === "weekly" && (!weeks || weeks < 2 || weeks > 12)) {
+      return failWith("weeks", "Between 2 and 12 weeks.", "ev-weeks");
+    }
+    const made = [];
+    for (let i = 0; i < weeks; i++) made.push(newEventFrom(t, d, i));
+    t.events = t.events.concat(made).sort(byDateThenTime);
+    made.forEach((x) => state.calOpen.add(x.id));
+    state.calTouched = true;
+    return finish(weeks === 1
+      ? "Draft created. Nobody is invited until you publish it."
+      : plural(weeks, "draft", "drafts") + " created, one a week. Each is independent.");
+  }
+
+  applyDraftTo(eventById(dlg.eventId), d);
+  t.events.sort(byDateThenTime);
+  return finish("Saved.", "the event details changed");
+}
+
+function wireEventDialog() {
+  const back = el("ev-backdrop");
+  if (!back) return;
+  const dlg = state.evDialog;
+  back.onclick = (e2) => { if (e2.target === back) closeEventDialog(); };
+  el("ev-cancel").onclick = closeEventDialog;
+  el("ev-save").onclick = saveEventDialog;
+  document.onkeydown = (e2) => {
+    if (!state.evDialog) return;
+    if (e2.key === "Escape") closeEventDialog();
+    else trapTab(e2, "#ev-backdrop .modal");
+  };
+
+  /* the type decides which optional fields exist, and the repeat decides whether the
+     week count does, so both re-render the form keeping everything already typed */
+  ["ev-type", "ev-repeat"].forEach((id) => {
+    const n = el(id);
+    if (n) n.onchange = () => {
+      dlg.draft = readEventForm();
+      dlg.errorField = null; dlg.error = "";
+      renderCalendar();
+      const again = el(id);
+      if (again) again.focus();
+    };
+  });
+
+  document.querySelectorAll("[data-invite]").forEach((cb) =>
+    cb.onchange = () => {
+      const id = Number(cb.dataset.invite);
+      if (cb.checked) state.evDeselected.delete(id); else state.evDeselected.add(id);
+      renderCalendar();
+      const again = document.querySelector('[data-invite="' + id + '"]');
+      if (again) again.focus();
+    });
+
+  if (el("ev-share")) el("ev-share").onclick = () => {
+    const text = document.querySelector("#ev-backdrop .sharetext").textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+    toast("Copied. Paste it into the team's group chat.");
+  };
+}
+
+function publishEvent(e, deselected) {
   e.published = true; e.draft = false;
   const t = TEAM_BY_ID.get(e.teamId);
-  t.people.filter((p) => p.type === "child").forEach((c) => e.status.set(c.id, "none"));
-  t.people.filter((p) => p.type === "adult" && p.coachIn[t.id]).forEach((a) => e.status.set(a.id, "none"));
+  const off = deselected || new Set();
+  /* everyone on the team — every child and every flagged coach — less anyone the admin
+     took off before publishing */
+  t.people.filter((p) => p.type === "child" && !off.has(p.id))
+    .forEach((c) => e.status.set(c.id, "none"));
+  t.people.filter((p) => p.type === "adult" && p.coachIn[t.id] && !off.has(p.id))
+    .forEach((a) => e.status.set(a.id, "none"));
 }
 
 /* ---------------- the event picker, shared by Responses and Squads ----------------
@@ -596,9 +1011,8 @@ function renderMembers() {
 
   el("view-members").innerHTML = `
     <div class="page-head">
-      <div><h2>Team members</h2>
-        <div class="count">${t.name} &middot; ${teamChildren().length} children and ${teamAdults().length} adults,
-          ${coachesNow().length} of them flagged as coaches</div></div>
+      <div class="count">${t.name} &middot; ${teamChildren().length} children and ${teamAdults().length} adults,
+        ${coachesNow().length} of them flagged as coaches</div>
       <div class="spacer"></div>
       <button class="btn">Import CSV</button><button class="btn primary">Add member</button>
     </div>
@@ -877,8 +1291,7 @@ function setStatusByAdmin(personId, value) {
 function renderResponses() {
   const e = ev(), t = team();
   const head = `<div class="page-head">
-      <div><h2>Responses</h2>
-        <div class="count">${t.name} &middot; who has answered, and who still needs asking</div></div>
+      <div class="count">${t.name} &middot; who has answered, and who still needs asking</div>
     </div>
     ${eventPicker("resp-event", "Event")}`;
 
@@ -1030,7 +1443,7 @@ function renderGroups() {
   /* The same picker the Responses screen carries, so squads for an event can be reached
      without going through the calendar to select it first. */
   const head = `<div class="page-head">
-      <div><h2>Squads</h2><div class="count">${t.name} &middot; who is with whom on the night</div></div>
+      <div class="count">${t.name} &middot; who is with whom on the night</div>
       <div class="spacer"></div>
       ${isSocial(e) ? "" : `<button class="btn primary" id="publish-squads">${
         e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button>`}</div>
@@ -1065,8 +1478,21 @@ function renderGroups() {
      maximum squad size, which is the only thing stopping everybody landing in one squad,
      and coach with their own child, which hard rule 4 is written conditionally on —
      leaving it out presented a team setting as a fixed rule. */
+  /* Set once a season, then passed nine times a week. A one-line summary by default,
+     the whole set behind it — the same reasoning as the rules panel below. */
+  const setSummary = [
+    state.mode === "ability" ? "Balanced ability" : "School affinity",
+    state.groupCount ? state.groupCount + " squads by hand" : "Squad count auto",
+    "sizes " + s.minGroupSize + "\u2013" + s.maxGroupSize + ", target " + s.targetGroupSize,
+    "1:" + s.ratio + " ratio",
+    plural(s.minCoachesPerGroup, "coach", "coaches") + " minimum",
+    "max " + s.maxGroups + " squads",
+    "coach with own child " + (s.coachWithOwnChild ? "on" : "off")
+  ].join(" \u00b7 ");
+
   const controls = `
-    <div class="card card-pad settings">
+    <details class="card settings-fold" ${state.squadSettingsOpen ? "open" : ""} id="set-fold">
+      <summary><span class="sf-k">Settings</span><span class="sf-v">${esc(setSummary)}</span></summary>
       <div class="set-grid">
         <label>Mode<select id="set-mode">
           <option value="ability" ${state.mode === "ability" ? "selected" : ""}>Balanced ability</option>
@@ -1081,7 +1507,7 @@ function renderGroups() {
         <label>Coach ratio 1: <input type="number" id="set-ratio" min="1" max="40" value="${s.ratio}"></label>
         <label>Min coaches <input type="number" id="set-mincoach" min="0" max="6" value="${s.minCoachesPerGroup}"></label>
         <label>Max squads <input type="number" id="set-max" min="1" max="20" value="${s.maxGroups}"></label>
-        <label class="set-wide"><span>Coach with their own child</span>
+        <label><span>Coach with their own child</span>
           <span class="segset" role="group" aria-label="Coach with their own child">
             <button type="button" class="segbtn ${s.coachWithOwnChild ? "is-on" : ""}"
               aria-pressed="${!!s.coachWithOwnChild}" data-cwoc="on">On</button>
@@ -1092,7 +1518,7 @@ function renderGroups() {
             ? "A coach only ever goes in their own child's squad, and stands down on a night that child misses."
             : "Coaches are spread wherever they are needed, and nobody stands down."}</span></label>
       </div>
-    </div>`;
+    </details>`;
 
   const fail = r.failed ? `<div class="alert stop"><b>The rules can't all be met.</b> ${esc(r.failure)}
       This is a normal outcome on a bad night, not an error &mdash; the squads below are still shown so you can proceed.</div>` : "";
@@ -1115,6 +1541,11 @@ function renderGroups() {
       the ${r.coachesUsed} who can coach.</div>` : "";
 
   const notes = (r.notes || []).map((n) => `<div class="alert notice">${esc(n)}</div>`).join("");
+
+  const noSchoolNote = state.mode === "school" && noSchool ? `<div class="alert notice">
+      ${plural(noSchool, "child", "children")} attending ${noSchool === 1 ? "has" : "have"} no school
+      recorded, so school affinity treats them as singletons.
+      <button class="link" id="show-noschool">show them in the member list</button></div>` : "";
 
   const cands = r.candidates.map((c) => `
     <tr class="${c.groups === r.chosen.groups ? "chosen" : ""}">
@@ -1146,17 +1577,47 @@ function renderGroups() {
       ${aims.map((c) => checkRow(c, c.ok ? "" : "warn")).join("")}
     </div>`;
 
-  const checks = (broken.length || missed.length)
-    ? `<div class="rules loud">
+  /* One band between the page header and Squad 1. The summary, the advisories, the
+     rules and the drag notice were six separate blocks an admin scrolled past every
+     time; folded together they are one line when the night is fine and open when it
+     is not. The failures stay at the top, not the bottom: a broken rule is the reason
+     the squads are wrong, and one below the fold is one an admin publishes over. */
+  const summaryLine = `<b>${plural(nChildren, "child", "children")}</b> and
+      <b>${plural(nCoaches, "coach", "coaches")}</b> accepted${
+        r.coachesUsed !== nCoaches ? ", <b>" + r.coachesUsed + "</b> able to coach" : ""},
+      split into <b>${plural(r.groups.length, "squad", "squads")}</b>${sizes.length
+        ? " of " + Math.min(...sizes) + "&ndash;" + Math.max(...sizes) : ""}.`;
+
+  const advisories = stand + notes + noSchoolNote;
+  const advisoryCount = (stand ? 1 : 0) + (r.notes || []).length + (noSchoolNote ? 1 : 0);
+
+  const dragNote = `<div class="bandnote">Drag a child or a coach onto another squad, or use the
+      <b>Move&hellip;</b> box that appears beside a name on hover or focus. A manual move is pinned and
+      survives a re-run, and moving one of a coach and child pair moves the other with it.</div>`;
+
+  const bandDetail = `
+    ${advisories}
+    <details class="why"><summary>Why ${r.groups.length} squads?</summary>
+      <table class="cand">${cands}</table></details>
+    ${allRows}
+    ${dragNote}
+    ${ratingLegend("margin:12px 0 2px")}`;
+
+  const band = (broken.length || missed.length)
+    ? `<div class="sqband loud">
+        <div class="bandlead">${summaryLine}</div>
+        ${fail}
         ${broken.map((c) => checkRow(c, "fail")).join("")}
         ${missed.map((c) => checkRow(c, "warn")).join("")}
-        <details class="rules-more"><summary>All ${r.checks.length} rules</summary>${allRows}</details>
+        <details class="bandmore"><summary>All ${r.checks.length} rules, the advisories and the count</summary>
+          ${bandDetail}</details>
       </div>`
-    : `<details class="rules quiet">
+    : `<details class="sqband quiet">
         <summary><span class="mark" aria-hidden="true">&check;</span>
-          <b>Every rule is met.</b> <span class="d">${plural(hard.length, "hard rule", "hard rules")}
-          and ${plural(aims.length, "aim", "aims")}, all passing.</span></summary>
-        ${allRows}
+          <span class="bandlead">${summaryLine}</span>
+          <span class="d">Every rule met.${advisoryCount
+            ? " " + plural(advisoryCount, "note", "notes") + "." : ""}</span></summary>
+        ${bandDetail}
       </details>`;
 
   /* The Move control is reachable by keyboard alone, per item 54 — it is in the document
@@ -1199,21 +1660,12 @@ function renderGroups() {
       <div class="spread">${spread}</div>
       ${spreadLabel}
       <div class="section">
-        <h4>Coaches (${g.coaches.length})</h4>${coaches}
-        <h4>Players (${g.children.length})</h4>${kids}
+        <div class="sqpart"><h4>Coaches (${g.coaches.length})</h4>${coaches}</div>
+        <div class="sqpart"><h4>Players (${g.children.length})</h4>${kids}</div>
       </div></div>`;
   }).join("");
 
-  el("view-groups").innerHTML = head + controls + updated + fail + move + stand + notes + `
-    <div class="banner">
-      <div class="lead"><b>${plural(nChildren, "child", "children")}</b> and <b>${plural(nCoaches, "coach", "coaches")}</b> accepted${
-        r.coachesUsed !== nCoaches ? ", <b>" + r.coachesUsed + "</b> able to coach" : ""},
-        split into <b>${plural(r.groups.length, "squad", "squads")}</b>${sizes.length
-          ? " of " + Math.min(...sizes) + "&ndash;" + Math.max(...sizes) : ""}.</div>
-      <details class="why"><summary>Why ${r.groups.length} squads?</summary>
-        <table class="cand">${cands}</table></details>
-    </div>
-    ${checks}
+  el("view-groups").innerHTML = head + controls + updated + move + band + `
     <div class="groups-head">
       <h3>${plural(r.groups.length, "squad", "squads")}</h3>
       <div class="spacer"></div>
@@ -1221,17 +1673,11 @@ function renderGroups() {
       <button class="btn" id="btn-undo" ${state.pins.size ? "" : "disabled"}>Clear manual moves${
         state.pins.size ? " (" + state.pins.size + ")" : ""}</button>
     </div>
-    <div class="notice" style="margin-top:0">Drag a child or a coach onto another squad, or use the
-      <b>Move&hellip;</b> box that appears beside a name on hover or focus. A manual move is pinned and
-      survives a re-run, and moving one of a coach and child pair moves the other with it.</div>
-    ${ratingLegend("margin:0 0 12px")}
-    ${state.mode === "school" && noSchool ? `<div class="alert notice">
-      ${plural(noSchool, "child", "children")} attending ${noSchool === 1 ? "has" : "have"} no school recorded,
-      so school affinity treats ${noSchool === 1 ? "them" : "them"} as singletons.
-      <button class="link" id="show-noschool">show them in the member list</button></div>` : ""}
     <div class="groups" id="groups-grid">${cards}</div>`;
 
   wireEventPicker("squad-event");
+  const fold = el("set-fold");
+  if (fold) fold.ontoggle = () => { state.squadSettingsOpen = fold.open; };
   wireSettings(); wireDragDrop();
   if (el("publish-squads")) el("publish-squads").onclick = () => {
     publishSquads(e, state.result);
@@ -1905,9 +2351,9 @@ function closeFamilyDialog() {
   if (trigger) trigger.focus();
 }
 
-function trapTab(e) {
+function trapTab(e, selector) {
   if (e.key !== "Tab") return;
-  const modal = document.querySelector("#edit-backdrop .modal");
+  const modal = document.querySelector(selector || "#edit-backdrop .modal");
   if (!modal) return;
   const items = [...modal.querySelectorAll('a[href], button, select, input, textarea, [tabindex]:not([tabindex="-1"])')]
     .filter((n) => !n.disabled && !n.hidden && n.getBoundingClientRect().width);

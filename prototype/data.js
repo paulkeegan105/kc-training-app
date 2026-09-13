@@ -150,7 +150,8 @@ const TEAMS = [
     /* The three sizes are the working defaults in allocation-rules.md — 12, 8 and 5 —
        for every team. The ratio is the one number that differs by age group. */
     settings: { maxGroups: 10, maxGroupSize: 12, minCoachesPerGroup: 1, ratio: 8,
-      targetGroupSize: 8, minGroupSize: 5, coachWithOwnChild: true, deadlineHours: 24 },
+      targetGroupSize: 8, minGroupSize: 5, coachWithOwnChild: true,
+      duration: 75, deadlineHours: 24 },
     schools: [
       { name: "Our Lady's Grove", count: 24 }, { name: "St Laurence's NS", count: 20 },
       { name: "Mount Anville NS", count: 16 }, { name: "Taney NS", count: 13 },
@@ -162,7 +163,8 @@ const TEAMS = [
     children: 64, coaches: 11, twoChild: 1, noSchool: 3,
     ratings: [8, 14, 20, 14, 8],
     settings: { maxGroups: 10, maxGroupSize: 12, minCoachesPerGroup: 1, ratio: 10,
-      targetGroupSize: 8, minGroupSize: 5, coachWithOwnChild: true, deadlineHours: 24 },
+      targetGroupSize: 8, minGroupSize: 5, coachWithOwnChild: true,
+      duration: 75, deadlineHours: 24 },
     schools: [
       { name: "Our Lady's Grove", count: 17 }, { name: "St Laurence's NS", count: 15 },
       { name: "Mount Anville NS", count: 12 }, { name: "Taney NS", count: 9 },
@@ -279,6 +281,7 @@ const VENUES = {
   }
 };
 
+const VENUE_NAMES = Object.keys(VENUES);
 const venueFor = (name) => VENUES[name] || null;
 /* The eircode is the better search term where there is one; the name still finds the
    place where there is not, so the map link does not depend on having an eircode. */

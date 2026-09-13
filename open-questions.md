@@ -583,6 +583,28 @@ One consequence worth naming, because it was not on the list: the split between 
 **Item 75 is still open** on which element leads an event row, and on whether training and matches should differ more strongly than a word and a tile colour. None of this commits to either. Giving the admin the tile the parent already has changes which screens are consistent with each other, not what the trial is being asked to settle.
 
 
+**96. Events could not be created or edited in the prototype at all.** The season was hand-authored in `data.js` and the calendar could publish a draft and delete one, and that was the whole of it. The create flow had never been specified past its field list either: `app-spec.md` names the required and optional fields, the duration and deadline defaults, the venue list and the twelve-week recurrence, and says nothing about what the form does with them.
+
+**Decided.** Single and recurring both. A club runs a midweek session, a Saturday session and a Sunday fixture, and creating a term of training one week at a time is twelve trips through the same form to type the same five values. **A term of one is as real as a one-off**, so neither is the special case and both are on the one form.
+
+**Recurrence stays a creation convenience, per item 24.** Each week becomes its own event the moment it is created, independent from that point, and the form says so in bold before an admin commits to twelve of them — because the thing a person assumes about a repeat is that editing it later edits the series, and here there is no series to edit. Editing or cancelling one changes no other, and nothing in the app afterwards remembers they were made together.
+
+**Publishing, deselection, the WhatsApp share and cancel-with-reason are built alongside it**, because an event that cannot be published cannot be tested: without them the create flow ends at a draft nobody can see and the whole of availability, allocation and the parent's view stays unreachable from anything an admin made. Publishing is its own step with its own dialog, it names how many of how many will be invited, the deselection is a list of every child and every flagged coach with a checkbox, and the share is offered as text to copy rather than a link that posts — it is a share and not a channel, so nothing comes back through it and nothing is tracked.
+
+One dialog does all four jobs, because they are four states of the same object and an admin reaches all four from the same row. It follows the Forms and dialogs rules already written down: focus taken on open and handed back on close, Tab trapped, Escape closes, a validation failure keeps every value typed with the message under the field it concerns, and every save confirms. Where the control that opened the dialog no longer exists afterwards — publishing removes the Publish button — focus falls back to the row.
+
+**The type decides which optional fields exist.** Opposition and an away flag appear for a match; a name appears for a blitz and a social, because those are the two whose titles carry one; neither appears for training, which needs neither. Changing the type re-renders the form and keeps everything already typed.
+
+**CSV import stays unbuilt.** The button is a placeholder that says so. Item 35 still has no column definitions for either template, and inventing columns now would mean inventing them again when the club's spreadsheets turn up — which is what the columns have to match.
+
+
+**97. Every admin screen carried a page title repeating its own tab.** Calendar, Members, Responses and Squads each had an `h2` reading "Season calendar", "Team members", "Responses" and "Squads", directly beneath a tab strip whose selected tab said the same thing.
+
+**Decided.** Removed, keeping the subline under each. The count and the qualifier are the part that says something the tab does not — "Under 9 · 13 events · 1 in draft", "who has answered, and who still needs asking" — so they stay and move up into the space the title had.
+
+Item 78 established this for the parent's two tabs and the reasoning is not parent-specific: **a tab strip is a heading, and a title beneath it says the same thing twice.** The parent's side has been running without titles since that item; the admin's kept them only because nobody had read the two strips against each other. That is the same shape of drift item 95 records, and the same answer.
+
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:
