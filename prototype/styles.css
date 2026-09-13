@@ -127,7 +127,19 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
   background: rgba(255,255,255,.14); color: var(--header-ink); border: 1px solid rgba(255,255,255,.4);
 }
 
-.tabs { background: var(--tabbar); display: flex; padding: 0 12px; overflow-x: auto; }
+/* The strip scrolls sideways at phone width — six tabs need 600px — so it has to say
+   so. Two `local` gradients paint the bar's own colour over the two `scroll` shadows
+   whenever the strip is at that end, so a soft edge appears only on the side that has
+   more to reach. No JS and no extra element: the background does it. */
+.tabs {
+  background:
+    linear-gradient(to right, var(--tabbar) 40%, rgba(74,5,112,0)) left / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--tabbar) 40%, rgba(74,5,112,0)) right / 28px 100% no-repeat local,
+    linear-gradient(to right, rgba(0,0,0,.32), rgba(0,0,0,0)) left / 16px 100% no-repeat scroll,
+    linear-gradient(to left, rgba(0,0,0,.32), rgba(0,0,0,0)) right / 16px 100% no-repeat scroll,
+    var(--tabbar);
+  display: flex; padding: 0 12px; overflow-x: auto; scroll-padding-inline: 12px;
+}
 .tabs button {
   background: none; border: 0; color: var(--tab-ink); cursor: pointer; font-family: inherit;
   padding: 11px 15px; font-size: 14px; font-weight: 600; white-space: nowrap;
@@ -135,6 +147,31 @@ h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 }
 .tabs button:hover { color: var(--tab-on); }
 .tabs button[aria-selected="true"] { color: var(--tab-on); border-bottom-color: var(--gold); }
+
+/* ---- the chrome at phone width ----
+   The header and the tab strip are one layout problem. At 375px the header wanted
+   458px on one row, which pushed the whole document to 438 and clipped the signed-in
+   name — and a page scrolling sideways underneath a strip that also scrolls sideways
+   is two scrollers arguing, which is why the strip read as broken rather than
+   scrollable. So the header wraps to two rows instead of overflowing, and only the
+   tab strip stays pinned. app-spec asks for exactly that: "The strip is sticky at
+   every scroll position", and nothing there asks the masthead to be. Every tab change
+   scrolls to the top anyway, so the name is in sight at the moment it is wanted. */
+@media (max-width: 600px) {
+  /* A sticky child can only stick inside its own parent's box, so the strip cannot be
+     pinned on its own while the bar above it scrolls away. The whole bar stays sticky
+     and is offset upward by the height of the masthead, which leaves the strip — the
+     last 42px of it — sitting at the top of the viewport. app.js measures the masthead
+     into --topbar-h; without it the fallback is 0 and the whole bar pins, which is the
+     wide-screen behaviour and a safe thing to degrade to. */
+  .appbar { top: calc(-1 * var(--topbar-h, 0px)); }
+
+  .topbar { padding: 10px 14px; gap: 9px 10px; flex-wrap: wrap; }
+  /* the spacer stops being a gap and becomes the line break: the club above, the
+     controls below it */
+  .topbar .spacer { flex: 0 0 100%; height: 0; }
+  .usermenu-wrap { margin-left: auto; }
+}
 
 main { max-width: 1120px; margin: 0 auto; padding: 22px 20px 70px; }
 .view { display: none; } .view.active { display: block; }
@@ -243,18 +280,24 @@ tbody tr:last-child td { border-bottom: 0; }
 .evrow.is-draft { border-left-color: var(--muted); border-style: dashed solid solid dashed; }
 .evrow.is-cancelled { border-left-color: var(--stop); }
 /* Past events recede, per item 71: no raised surface, no accent, a quieter title. They
-   keep their place in the list and everything in them. */
-.evrow.is-past { box-shadow: none; background: var(--surface-2); }
-.evrow.is-past .evmain .t { font-weight: 600; color: var(--muted); }
+   keep their place in the list and everything in them. Identical to the parent's rule
+   below — a filled --surface-2 panel sat forward of the page ground, which is the
+   opposite of receding. */
+.evrow.is-past {
+  background: transparent; box-shadow: none;
+  border: 1px solid var(--line); border-left: 4px solid transparent;
+}
+.evrow.is-past .evmain .t { color: var(--muted); }
+.evrow.is-past.is-open { border-left-color: transparent; }
 /* the row is still a button, so it still needs to answer a hover */
-.evrow.is-past .evhead:hover { background: var(--line); }
-.evrow.is-past.is-open { border-left-color: var(--line); }
+.evrow.is-past .evhead:hover { background: var(--surface-2); }
 
 .evhead { display: flex; align-items: center; gap: 14px; padding: 13px 16px; cursor: pointer; width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: left; flex-wrap: wrap; }
 .evhead:hover { background: var(--surface-2); }
-.evdate { flex: none; width: 46px; text-align: center; }
-.evdate .d { font-size: 19px; font-weight: 700; line-height: 1; }
-.evdate .m { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+/* The admin row uses the same .ev-when tile the parent's does, coloured by type and
+   muted when past — one component, so the two cannot drift apart again. The only
+   difference is what the second line says, which is in the markup: the admin gets the
+   weekday because an admin row carries no relative day in its subline. */
 /* The title and the sub are their own lines. Left inline they ran together into one
    paragraph, and with the tag column taking its content width there was nothing left
    for them at phone width — a title wrapped one word per line. */
@@ -267,7 +310,8 @@ tbody tr:last-child td { border-bottom: 0; }
    squeezing it. 46px tile + 14px gap lines it up with the text above. */
 @media (max-width: 620px) {
   .evhead { gap: 8px 14px; }
-  .evtags { flex: 1 0 100%; justify-content: flex-start; padding-left: 60px; }
+  /* full width and left-aligned, exactly as the parent's status row is */
+  .evtags { flex: 1 0 100%; justify-content: flex-start; }
   .deadline-bar > div:first-child { min-width: 0; }
   .dl-set input { width: 100%; }
 }
@@ -714,6 +758,36 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 .fev-tags.stacked { flex-direction: column; align-items: flex-end; justify-content: center; gap: 7px; }
 .fev-tags .st-pair { justify-content: flex-end; }
 
+/* At phone width the column gives way completely and drops under the title, because
+   sharing one line three ways does not work at 375px: the tile takes 58, the statuses
+   floor at their own content — 111px for one, 153px for a coaching parent's two — and
+   what is left is about 60px for a title that can run to "Match · Home to Templeogue
+   Synge Street". Measured before this: 23 of 54 rows across the three personas wrapped
+   past two lines, the worst to six, and one collapsed row stood 217px tall.
+
+   The straight edge down the right of the list is a scanning aid and it is worth
+   keeping wherever there is room for it, which is why this is a breakpoint and not a
+   rewrite. Below it the stronger aid is a title you can read. The admin row already
+   makes the same trade at the same width. */
+@media (max-width: 600px) {
+  .fev-head { flex-wrap: wrap; gap: 8px 14px; }
+  /* basis 0, not auto: with wrapping on, an auto basis is the title's max-content
+     width, which is wider than the row, so the tile and the title each took a line
+     of their own. At 0 the title grows into whatever the tile leaves. */
+  .fev-main { flex: 1 1 0; }
+  /* Full width, not indented under the title. Two labelled statuses need up to 269px
+     — "Orla ✓ Accepted" beside "You ⦿ No response" — and indenting by the 72px that
+     would line them up with the title leaves 227, so some rows fitted on one line and
+     some wrapped to two. Left-aligned they all fit, with 30px to spare on the widest,
+     and they form their own straight edge down the list, which is what the column at
+     the right was for. */
+  .fev-tags { flex: 1 0 100%; justify-content: flex-start; }
+  .fev-tags.one { align-items: center; }
+  /* two answers sit side by side on a line of their own rather than columning down */
+  .fev-tags.stacked { flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; }
+  .fev-tags .st-pair { justify-content: flex-start; }
+}
+
 /* ---- the earlier-events control ---- */
 .earlier-row .caret { transition: transform .15s ease; transform-origin: 50% 50%; }
 .earlier-row .caret.up { transform: rotate(180deg); }
@@ -753,10 +827,13 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
    fades with the rest of the row once it has, exactly as purple and gold do. */
 .ev-when.is-social { background: var(--tile-social-bg); color: var(--tile-social-ink); }
 
-/* a finished match must not sit there brighter than an upcoming session */
+/* a finished match must not sit there brighter than an upcoming session, on either list */
 .fev.is-past .ev-when.is-training,
 .fev.is-past .ev-when.is-match,
-.fev.is-past .ev-when.is-social { background: var(--surface-2); color: var(--muted); }
+.fev.is-past .ev-when.is-social,
+.evrow.is-past .ev-when.is-training,
+.evrow.is-past .ev-when.is-match,
+.evrow.is-past .ev-when.is-social { background: var(--surface-2); color: var(--muted); }
 
 /* ---- how to get there: eircode, a link to maps, and what the parking is like ---- */
 .venue-detail { padding: 0 0 12px; font-size: 13px; }
@@ -764,6 +841,8 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 .vd-k { color: var(--muted); font-weight: 650; }
 .vd-v { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .vd-map { color: var(--brand); font-weight: 650; text-decoration: underline; }
+/* admin-only: a fact about the record, not a pending state, and never parent-facing */
+.vd-missing { color: var(--muted); font-style: italic; }
 .vd-map:hover { text-decoration: none; }
 .vd-note { color: var(--muted); margin-top: 5px; line-height: 1.45; }
 

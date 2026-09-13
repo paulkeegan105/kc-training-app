@@ -233,7 +233,13 @@ Push is expected in a later release. Notifications should be built with the chan
 
 ## Keeping the squads current
 
-The allocation re-runs by itself whenever something changes it, and there is no re-run button. Whenever it does, say so: what caused it, and what changed as a result. The rules are in `allocation-rules.md`.
+The allocation re-runs by itself whenever something changes it. Whenever it does, say so: what caused it, and what changed as a result. The rules are in `allocation-rules.md`.
+
+The Squads screen also carries a **re-run control**, for the one case no change event covers.
+Once an admin has moved people by hand those people are pinned, and re-running keeps them where
+they were put and reallocates everyone else around them — which is a different outcome from
+clearing all pins, and one nothing else triggers. It is always enabled, and a re-run that moves
+nobody says so. Clearing all pins stays as the separate way to get a clean allocation.
 
 ## Contacting people
 

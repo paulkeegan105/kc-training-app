@@ -208,7 +208,9 @@ A manual move can break the other hard rules. Allow it, and show the admin what 
 
 ## Re-running the allocation
 
-The allocation re-runs by itself whenever something changes it: a response, an admin override, a coach flag, a setting, the mode, the squad count, or an edit to a child's rating or school. There is no re-run button, because there is nothing left for it to do.
+The allocation re-runs by itself whenever something changes it: a response, an admin override, a coach flag, a setting, the mode, the squad count, or an edit to a child's rating or school.
+
+There is also a **re-run control**, because pinning gave one something to do. A manual move pins the people it moved, and re-running then keeps them where the admin put them and reallocates everyone else around them. No change event produces that, and it is not what clearing all pins produces either. The control is always enabled, and a re-run that moves nobody says so — see the paragraph below.
 
 A re-run is never silent. Tell the admin that the squads were updated, what caused it, and what changed as a result — whether the squad count moved, and how many children changed squad. A change that moves nobody is still reported, because "nothing moved" is the useful answer.
 

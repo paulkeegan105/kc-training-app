@@ -51,6 +51,7 @@ const state = {
   eventId: null,
   calOpen: new Set(),       // calendar rows open and close on their own — item 81
   calTouched: false,        // once an admin opens or closes one, stop choosing for them
+  calShowEarlier: false,    // the season before the next event, collapsed
   view: null,
   settings: null,
   mode: null,
@@ -260,6 +261,9 @@ function renderAll() {
   renderThemeToggle();
   if (isAdmin(me)) { renderCalendar(); renderMembers(); renderResponses(); renderGroups(); }
   renderFamily();
+  /* after everything is drawn: the name button is filled by renderWhoami above, and an
+     empty one measures shorter than a filled one */
+  syncChromeOffset();
   window.scrollTo(0, y);
 }
 
@@ -289,12 +293,6 @@ const tileKind = (e) => (e.type === "Game" || e.type === "Blitz") ? "is-match"
 
 function renderCalendar() {
   const t = team();
-  const months = [];
-  t.events.forEach((e) => {
-    const m = e.longDate.split(" ").slice(2).join(" ");
-    if (!months.length || months[months.length - 1].label !== m) months.push({ label: m, events: [] });
-    months[months.length - 1].events.push(e);
-  });
 
   /* Rows open and close on their own, exactly as the parent's do (item 81): opening one
      never closes another, and tapping a row only ever changes that row's own height,
@@ -307,16 +305,14 @@ function renderCalendar() {
     if (next) state.calOpen.add(next.id);
   }
 
-  const body = months.map((m) => `
-    <div class="month">${m.label}</div>
-    ${m.events.map((e) => {
+  const renderAdminRow = (e) => {
       const open = state.calOpen.has(e.id);
       const counts = ["accepted", "declined", "none"].map((k) =>
         [...e.status.entries()].filter(([, v]) => v === k).length);
       const tags = [];
       if (e.cancelled) tags.push('<span class="tag cancelled">Cancelled</span>');
       else if (e.draft) tags.push('<span class="tag draft">Draft &middot; not published</span>');
-      else if (e.past) tags.push('<span class="tag unreg">Finished</span>');
+      else if (started(e)) tags.push('<span class="tag unreg">Finished</span>');
       if (e.published && !e.cancelled) {
         const invited = counts[0] + counts[1] + counts[2];
         tags.push(`<span class="pill accepted">${counts[0]} of ${invited} accepted</span>`);
@@ -324,10 +320,11 @@ function renderCalendar() {
         tags.push(`<span class="tag ${ds.closed ? "unreg" : "due"}">${ds.chip}</span>`);
       }
 
-      return `<div class="evrow ${open ? "is-open" : ""} ${e.draft ? "is-draft" : ""} ${e.cancelled ? "is-cancelled" : ""} ${e.past ? "is-past" : ""}"
+      return `<div class="evrow ${open ? "is-open" : ""} ${e.draft ? "is-draft" : ""} ${e.cancelled ? "is-cancelled" : ""} ${started(e) ? "is-past" : ""}"
         id="evrow-${e.id}">
         <button class="evhead" data-event="${e.id}" aria-expanded="${open}">
-          <span class="evdate"><span class="d">${e.date.slice(8)}</span><span class="m">${e.dayName.slice(0, 3)}</span></span>
+          <span class="ev-when ${tileKind(e)}"><span class="dd">${e.date.slice(8)}</span><span
+            class="mm">${e.dayName.slice(0, 3)}</span></span>
           <span class="evmain">
             <span class="t">${eventTitle(e)}</span>
             <span class="s">${e.time}&ndash;${e.endTime} &middot; ${esc(e.venue)}</span>
@@ -345,15 +342,17 @@ function renderCalendar() {
             <div><div class="k">Duration</div>${e.duration} min</div>
             <div><div class="k">Venue</div>${esc(e.venue)}</div>
             ${e.opposition ? `<div><div class="k">Opposition</div>${esc(e.opposition)}</div>` : ""}
-            <div><div class="k">Mode</div>${e.mode === "ability" ? "Balanced ability" : "School affinity"}</div>
+            ${isSocial(e) ? "" : `<div><div class="k">Mode</div>${
+              e.mode === "ability" ? "Balanced ability" : "School affinity"}</div>`}
           </div>
+          ${venueBlock(e, true)}
           ${e.published && !e.cancelled ? `<div class="deadline-bar">
             <div>
               <div class="k">Response deadline</div>
               <div class="dl-main">${fmtWhen(deadlineFor(e))} &middot;
                 <span class="${deadlineState(e).closed ? "dl-closed" : "dl-open"}">${deadlineState(e).label}</span></div>
               <div class="sub">Reminder to non-responders goes out ${fmtWhen(reminderFor(e))}, a day before answers are due.
-                Nothing locks: a parent can still change their answer, and the allocation re-runs when they do.</div>
+                Nothing locks: a parent can still change their answer${isSocial(e) ? "" : ", and the allocation re-runs when they do"}.</div>
             </div>
             <label class="dl-set">Hours before start
               <input type="number" min="1" max="336" id="dl-${e.id}" data-deadline="${e.id}" value="${deadlineHoursFor(e)}">
@@ -373,7 +372,48 @@ function renderCalendar() {
           </div>
         </div>` : ""}
       </div>`;
-    }).join("")}`).join("");
+  };
+
+  /* The list opens at the next upcoming event, and everything earlier collapses behind
+     a single row that reads as the control it is — the same collapse the parent's list
+     has. It is a collapse and not a filter: nothing is removed, a cancelled event stays
+     inline wherever it falls, and drafts stay where they are, visible to admins only.
+
+     The split uses hasStarted(), which is what the parent's uses, so a session earlier
+     today falls on the same side of the line on both screens. */
+  const started = (e) => hasStarted(e);
+  const firstUpcoming = t.events.findIndex((e) => !started(e));
+  const earlier = firstUpcoming === -1 ? t.events.slice() : t.events.slice(0, firstUpcoming);
+  const rest = firstUpcoming === -1 ? [] : t.events.slice(firstUpcoming);
+
+  const monthOf = (e) => e.longDate.split(" ").slice(2).join(" ");
+  const renderMonths = (list, skipFirstLabel) => {
+    const months = [];
+    list.forEach((e) => {
+      const m = monthOf(e);
+      if (!months.length || months[months.length - 1].label !== m) months.push({ label: m, events: [] });
+      months[months.length - 1].events.push(e);
+    });
+    return months.map((m, i) =>
+      (i === 0 && m.label === skipFirstLabel ? "" : `<div class="month">${m.label}</div>`)
+      + m.events.map(renderAdminRow).join("")).join("");
+  };
+
+  const earlierBlock = earlier.length
+    ? `<button class="earlier-row" id="cal-earlier-toggle" aria-expanded="${state.calShowEarlier}">
+         <svg class="caret ${state.calShowEarlier ? "up" : ""}" viewBox="0 0 12 8"
+           aria-hidden="true" focusable="false"><path d="M1 1.75 L6 6.25 L11 1.75" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+         ${state.calShowEarlier ? "Hide" : "Show"} ${plural(earlier.length, "earlier event", "earlier events")}
+       </button>
+       ${state.calShowEarlier ? renderMonths(earlier) : ""}`
+    : "";
+
+  // expanding the earlier events must not print the same month heading twice in a row
+  const lastEarlierMonth = state.calShowEarlier && earlier.length
+    ? monthOf(earlier[earlier.length - 1]) : null;
+
+  const body = earlierBlock + renderMonths(rest, lastEarlierMonth);
 
   el("view-calendar").innerHTML = `
     <div class="page-head">
@@ -387,6 +427,14 @@ function renderCalendar() {
     ${body}
     <div class="notice">A draft is invisible to members and can be deleted. Once published it can only be
       cancelled, which asks for a reason and notifies everyone.</div>`;
+
+  const earlierToggle = el("cal-earlier-toggle");
+  if (earlierToggle) earlierToggle.onclick = () => {
+    state.calShowEarlier = !state.calShowEarlier;
+    renderCalendar();
+    const again = el("cal-earlier-toggle");
+    if (again) again.focus();
+  };
 
   /* Tapping a row never moves it: the detail opens downward beneath it and everything
      above stays put. The scroll correction is kept for what can still shift a row — the
@@ -1484,15 +1532,19 @@ function squadPanel(entry, person) {
 /* What a parent needs to get there: where it is, the eircode to type into a phone, a
    link that opens it in maps, and whatever is awkward about parking. All of it belongs
    to the venue, so every event at that venue shows the same lines. */
-function venueBlock(e) {
+function venueBlock(e, forAdmin) {
   const v = venueFor(e.venue);
   if (!v) return "";
   const map = mapLinkFor(e.venue, v);
-  /* An eircode is either recorded or it is not. Where it is not there is no line for
-     it — the name, the map link and the access note carry the card on their own. */
+  /* For a parent an eircode is either recorded or it is not, and where it is not there
+     is no line for it — item 86. An admin gets the gap named instead, because whether a
+     venue's details are complete is an admin's problem and the admin's view is where it
+     belongs. It is a fact, not a pending state: nothing about it is parent-facing. */
   return `<div class="venue-detail">
       <div class="vd-line">
-        ${v.eircode ? `<span class="vd-k">Eircode</span><span class="vd-v">${esc(v.eircode)}</span>` : ""}
+        ${v.eircode
+          ? `<span class="vd-k">Eircode</span><span class="vd-v">${esc(v.eircode)}</span>`
+          : forAdmin ? `<span class="vd-k">Eircode</span><span class="vd-v vd-missing">not recorded</span>` : ""}
         ${map ? `<a class="vd-map" href="${esc(map)}" target="_blank" rel="noopener noreferrer"
           >Open in maps<span class="vh"> (opens in a new tab)</span></a>` : ""}
       </div>
@@ -2067,6 +2119,19 @@ function wireTabKeys() {
   });
 }
 
+/* The masthead's height, measured, so the phone breakpoint can offset the sticky bar
+   by exactly it and leave the tab strip pinned on its own. It changes with the age-group
+   picker appearing or disappearing, so it is re-measured whenever the chrome renders. */
+function syncChromeOffset() {
+  const bar = document.querySelector(".topbar");
+  if (!bar) return;
+  /* the fractional height, not offsetHeight: rounding down leaves a sliver of the
+     masthead showing under the pinned strip */
+  document.documentElement.style.setProperty(
+    "--topbar-h", bar.getBoundingClientRect().height.toFixed(2) + "px");
+}
+addEventListener("resize", syncChromeOffset);
+
 function renderChrome() {
   const me = signedIn();
   const tabs = visibleTabs();
@@ -2088,6 +2153,7 @@ function renderChrome() {
      and an admin of another has the personal tabs only on the one */
   if (!tabs.some((t) => t.id === state.view)) showView(tabs[0].id);
   else showView(state.view);
+  syncChromeOffset();
 }
 
 function signInAs(id) {
