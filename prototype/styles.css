@@ -555,7 +555,10 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
    rather than pushing the row wider than the screen. It stops shrinking at its
    own content, so a status never wraps away from the name it belongs to. */
 .fev-tags { flex: 0 1 168px; }
-.fev-tags.one { justify-content: center; align-items: flex-end; }
+/* one status or two, it ends on the same line: .one keeps the flex-end the column
+   already sets and only centres itself across the row's height. Cancelled rows use
+   .one too, so their tag lines up with every other row's as well. */
+.fev-tags.one { align-items: center; }
 .fev-tags.stacked { flex-direction: column; align-items: flex-end; justify-content: center; gap: 7px; }
 .fev-tags .st-pair { justify-content: flex-end; }
 

@@ -12,4 +12,7 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });
-}).listen(8777, () => console.log('serving on 8777'));
+}).listen(8777, '0.0.0.0', function () {
+  const a = this.address();
+  console.log('bound to ' + a.address + ':' + a.port + ' (all interfaces)');
+});

@@ -421,5 +421,29 @@ const SEEDED = (function () {
   const pastUnanswered = unanswer([...TEAM_BY_ID.get("u9").events].reverse().find((e) =>
     e.published && !e.cancelled && eventStart(e) <= NOW), u9Kid);
 
-  return { parent, u9Kid, u11Kid, closedUnanswered, pastUnanswered };
+  /* 4. the squad card, which this persona could not reach at all. Squads are only
+        published for each team's next event, and on that event this child was down
+        as not coming, so no squad panel, no player list, no own-child marker. With
+        the answer the other way the two parent personas land on the same event with
+        the same card, and the only thing that differs on it is the coach numbers. */
+  const squadEvent = nextEventFor(TEAM_BY_ID.get("u9"));
+  if (squadEvent) {
+    squadEvent.status.set(u9Kid.id, "accepted");
+    squadEvent.answeredBy.set(u9Kid.id, parent.id);
+    squadEvent.answeredAt.set(u9Kid.id, new Date(NOW.getTime() - 6 * 86400000));
+  }
+
+  /* 5. and the mirror of it on the coaching persona: something owed inside the week,
+        so the outstanding-answers banner is reachable there too. Her only unanswered
+        event was eleven days out. It has to be an event whose squads are not
+        published, or she would be listed as a coach on a squad for a session she
+        has not answered. */
+  const coach = BY_ID.get(PERSONAS[1].id);
+  const coachKid = coach.childIds.map((id) => BY_ID.get(id)).filter(Boolean)[0];
+  const weekEnd = new Date(NOW.getTime() + 7 * 86400000);
+  const bannerEvent = unanswer(TEAM_BY_ID.get(coachKid.teamId).events.find((e) =>
+    e.published && !e.cancelled && !e.squadsPublished && e !== squadEvent
+    && eventStart(e) > NOW && eventStart(e) <= weekEnd), coachKid);
+
+  return { parent, u9Kid, u11Kid, closedUnanswered, pastUnanswered, squadEvent, bannerEvent };
 })();

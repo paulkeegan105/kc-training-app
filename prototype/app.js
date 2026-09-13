@@ -1842,3 +1842,31 @@ TEAMS.forEach((t) => {
   const e = nextEventFor(t);
   if (e && e.published && !e.cancelled) publishSquads(e, allocationFor(t, e));
 });
+
+/* Seeded, and only reachable once squads exist: a second coach on the squad the
+   coaching persona's child is in. The allocator gives most squads a single coach, and
+   hers was that coach, so the coach-to-coach phone numbers had nowhere to appear.
+   The coach is taken from a squad that has one to spare, so none is left without one,
+   and their own children go with them — where the allocator puts a coach, and where
+   an admin moving one by hand would leave them. */
+(function seedSecondCoach() {
+  const coach = BY_ID.get(PERSONAS[1].id);
+  const kid = coach.childIds.map((id) => BY_ID.get(id)).filter(Boolean)[0];
+  if (!kid) return;
+  const e = nextEventFor(TEAM_BY_ID.get(kid.teamId));
+  if (!e || !e.squadsPublished) return;
+
+  const mine = e.squads.find((sq) => sq.childIds.includes(kid.id));
+  if (!mine || mine.coachIds.length > 1) return;
+  const donor = e.squads.find((sq) => sq !== mine && sq.coachIds.length > 1);
+  if (!donor) return;
+
+  const movedId = donor.coachIds.pop();
+  mine.coachIds.push(movedId);
+  BY_ID.get(movedId).childIds.forEach((cid) => {
+    const from = e.squads.find((sq) => sq !== mine && sq.childIds.includes(cid));
+    if (!from) return;
+    from.childIds = from.childIds.filter((x) => x !== cid);
+    mine.childIds.push(cid);
+  });
+})();
