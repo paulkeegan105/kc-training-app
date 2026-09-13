@@ -39,7 +39,8 @@ const state = {
   signedInId: null,
   editScope: "admin",
   familyTab: "calendar",
-  familyOpenId: null,
+  familyOpen: new Set(),      // event ids, not one id: see the [data-fev] handler
+  familyTouchedRows: false,   // once a parent opens or closes one, stop choosing for them
   familyShowEarlier: false,
   familyChild: "all",
   familyEditing: null,
@@ -1223,10 +1224,12 @@ function squadPanel(entry, person) {
        wait for a squad that already went out without their child in it can turn up
        at a pitch expecting a team. */
     if (e.squadsPublished) {
-      return `<div class="pending"><b>${esc(person.firstName)} isn't in a squad for this session.</b>
-        Squads went out${e.squadsPublishedAt ? " on " + fmtDay(e.squadsPublishedAt) : ""}, before this answer
-        came in, so ${esc(person.firstName)} wasn't included. Tell a coach ${esc(person.firstName)} is coming
-        and they'll be put into one on the night.</div>`;
+      /* The fact, then the thing to do about it, then why it happened. Leaving the
+         instruction until last buried the only part a parent can act on. */
+      return `<div class="pending is-missing"><b>${esc(person.firstName)} isn't in a squad for this session.</b>
+        Tell a coach ${esc(person.firstName)} is coming and they'll be put into one on the night.
+        Squads went out${e.squadsPublishedAt ? " on " + fmtDay(e.squadsPublishedAt) : ""}, before this
+        answer came in.</div>`;
     }
     if (hasStarted(e)) return "";      // finished, and squads were never published
     return `<div class="pending">Squads for this session haven't been published yet.
@@ -1272,13 +1275,15 @@ function squadPanel(entry, person) {
 function venueBlock(e) {
   const v = venueFor(e.venue);
   if (!v) return "";
-  const map = mapLinkFor(v);
+  const map = mapLinkFor(e.venue, v);
+  /* An eircode is either recorded or it is not. Where it is not there is no line for
+     it — the name, the map link and the access note carry the card on their own. */
   return `<div class="venue-detail">
-      ${v.eircode ? `<div class="vd-line"><span class="vd-k">Eircode</span>
-        <span class="vd-v">${esc(v.eircode)}${v.eircodeUnconfirmed
-          ? ' <span class="tag unreg">to be confirmed</span>' : ""}</span>
+      <div class="vd-line">
+        ${v.eircode ? `<span class="vd-k">Eircode</span><span class="vd-v">${esc(v.eircode)}</span>` : ""}
         ${map ? `<a class="vd-map" href="${esc(map)}" target="_blank" rel="noopener noreferrer"
-          >Open in maps<span class="vh"> (opens in a new tab)</span></a>` : ""}</div>` : ""}
+          >Open in maps<span class="vh"> (opens in a new tab)</span></a>` : ""}
+      </div>
       ${v.note ? `<div class="vd-note">${esc(v.note)}</div>` : ""}
     </div>`;
 }
@@ -1390,14 +1395,18 @@ function renderFamily() {
   const rest = firstUpcoming === -1 ? [] : filtered.slice(firstUpcoming);
 
   const answerable = rest.filter((x) => !x.event.cancelled);
-  if (!state.familyOpenId || !filtered.some((x) => x.event.id === state.familyOpenId)) {
+  /* One card starts open — the next event, because that is the one being asked about.
+     After that the parent decides; opening a second does not shut the first. */
+  const visible = new Set(filtered.map((x) => x.event.id));
+  [...state.familyOpen].forEach((id) => { if (!visible.has(id)) state.familyOpen.delete(id); });
+  if (!state.familyOpen.size && !state.familyTouchedRows) {
     const next = answerable[0] || rest[0] || earlier[earlier.length - 1];
-    state.familyOpenId = next ? next.event.id : null;
+    if (next) state.familyOpen.add(next.event.id);
   }
 
   const renderRow = (entry) => {
     const e = entry.event, t = entry.team;
-    const open = e.id === state.familyOpenId;
+    const open = state.familyOpen.has(e.id);
     const started = hasStarted(e);
     const people = entry.kids.concat(me.coachIn[t.id] ? [me] : []);
 
@@ -1690,7 +1699,6 @@ function wireFamily(firstOwed) {
   root.querySelectorAll("[data-childchip]").forEach((b) =>
     b.onclick = () => {
       state.familyChild = b.dataset.childchip;
-      state.familyOpenId = null;
       renderFamily();
     });
 
@@ -1699,7 +1707,8 @@ function wireFamily(firstOwed) {
     // the thing it counted may be hidden by the current filter, so clear it on the way
     state.familyTab = "calendar";
     state.familyChild = "all";
-    state.familyOpenId = firstOwed.entry.event.id;
+    state.familyOpen.add(firstOwed.entry.event.id);
+    state.familyTouchedRows = true;
     if (hasStarted(firstOwed.entry.event)) state.familyShowEarlier = true;
     renderFamily();
     const node = el("fev-" + firstOwed.entry.event.id);
@@ -1711,10 +1720,24 @@ function wireFamily(firstOwed) {
   };
   const evById = (id) => TEAMS.flatMap((t) => t.events).find((e) => e.id === id);
 
+  /* A row used to close whichever other row was open. If that one was above, the page
+     above the tapped row shrank and the row walked out from under the thumb — and at the
+     top of the list there is no scroll left to give back, so no amount of scroll
+     correction could put it right. So a row now opens and closes on its own: tapping one
+     only ever changes that row's own height, downward, and nothing above it moves.
+
+     The scroll correction stays for everything else that can shift a row — the document
+     getting shorter underneath it, and the browser clamping scroll at the end. */
   root.querySelectorAll("[data-fev]").forEach((b) =>
     b.onclick = () => {
-      state.familyOpenId = state.familyOpenId === b.dataset.fev ? null : b.dataset.fev;
+      const id = b.dataset.fev;
+      const before = el("fev-" + id).getBoundingClientRect().top;
+      if (state.familyOpen.has(id)) state.familyOpen.delete(id);
+      else state.familyOpen.add(id);
+      state.familyTouchedRows = true;
       renderFamily();
+      const after = el("fev-" + id);
+      if (after) window.scrollBy(0, after.getBoundingClientRect().top - before);
     });
   root.querySelectorAll("[data-yes]").forEach((b) =>
     b.onclick = () => familyAnswer(evById(b.dataset.ev), Number(b.dataset.yes), "accepted"));
@@ -1843,7 +1866,8 @@ function signOut() {
   // view state belongs to the session that made it
   state.familyTab = "calendar";
   state.familyChild = "all";
-  state.familyOpenId = null;
+  state.familyOpen = new Set();
+  state.familyTouchedRows = false;
   state.familyShowEarlier = false;
   state.familyEditing = null;
   el("app").hidden = true;
@@ -1906,11 +1930,15 @@ TEAMS.forEach((t) => {
    be missing from: the child is down as coming and is in nobody's squad, which is the
    state the app has to explain rather than hide. */
 LATE_ANSWERS.forEach((a) => {
-  const e = TEAM_BY_ID.get(a.teamId).events.find((x) => x.date === a.date);
+  const e = TEAM_BY_ID.get(a.teamId).events.find((x) => x.key === a.key);
   if (!e || !e.squadsPublished) return;
+  /* after the squads went out, and still before the session itself */
+  const when = new Date(Math.max(
+    SCENARIO.answeredAtFor(e, a.daysBefore).getTime(),
+    e.squadsPublishedAt.getTime() + 86400000));
   e.status.set(a.personId, "accepted");
   e.answeredBy.set(a.personId, a.byId);
-  e.answeredAt.set(a.personId, a.when);
+  e.answeredAt.set(a.personId, when);
 });
 
 /* Seeded, and only reachable once squads exist: a second coach on the squad the
