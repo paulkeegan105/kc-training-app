@@ -49,6 +49,8 @@ const state = {
   editReturnTo: null,
   teamId: "u9",
   eventId: null,
+  calOpen: new Set(),       // calendar rows open and close on their own — item 81
+  calTouched: false,        // once an admin opens or closes one, stop choosing for them
   view: null,
   settings: null,
   mode: null,
@@ -68,6 +70,8 @@ const state = {
 const signedIn = () => BY_ID.get(state.signedInId);
 const team = () => TEAM_BY_ID.get(state.teamId);
 const ev = () => team().events.find((e) => e.id === state.eventId);
+/* a calendar row acts on its own event, not on whichever one the other screens hold */
+const eventById = (id) => team().events.find((e) => e.id === id);
 const teamChildren = () => team().people.filter((p) => p.type === "child");
 const teamAdults = () => team().people.filter((p) => p.type === "adult");
 const coachesNow = () => teamAdults().filter((a) => a.coachIn[state.teamId]);
@@ -86,6 +90,8 @@ function selectTeam(id) {
   state.eventPicked = false;
   state.respDefaulted = false;
   state.squadDefaulted = false;
+  state.calOpen = new Set();
+  state.calTouched = false;
   selectEvent(nextEventFor(t).id);
 }
 function selectEvent(id) {
@@ -106,12 +112,12 @@ function placementSnapshot() {
 
 /* what actually changed, so a re-run is never silent */
 function describeRerun(reason, before, after) {
-  if (!after) return { reason, detail: "there are no groups to show" };
+  if (!after) return { reason, detail: "there are no squads to show" };
   const bits = [];
   if (before && before.count !== after.count) {
-    bits.push(before.count + (before.count === 1 ? " group became " : " groups became ") + after.count);
+    bits.push(before.count + (before.count === 1 ? " squad became " : " squads became ") + after.count);
   } else {
-    bits.push(plural(after.count, "group", "groups"));
+    bits.push(plural(after.count, "squad", "squads"));
   }
   if (before) {
     let moved = 0, added = 0, gone = 0;
@@ -122,8 +128,8 @@ function describeRerun(reason, before, after) {
     before.map.forEach((g, id) => { if (!after.map.has(id)) gone++; });
     if (added) bits.push(plural(added, "child", "children") + " added");
     if (gone) bits.push(plural(gone, "child", "children") + " taken out");
-    if (moved) bits.push(plural(moved, "child", "children") + " changed group");
-    if (!added && !gone && !moved) bits.push("nobody changed group");
+    if (moved) bits.push(plural(moved, "child", "children") + " changed squad");
+    if (!added && !gone && !moved) bits.push("nobody moved");
   }
   return { reason, detail: bits.join(", ") };
 }
@@ -290,10 +296,21 @@ function renderCalendar() {
     months[months.length - 1].events.push(e);
   });
 
+  /* Rows open and close on their own, exactly as the parent's do (item 81): opening one
+     never closes another, and tapping a row only ever changes that row's own height,
+     downward. One card starts open — the next event, because it is the one being asked
+     about — and after that the admin decides. */
+  const here = new Set(t.events.map((e) => e.id));
+  [...state.calOpen].forEach((id) => { if (!here.has(id)) state.calOpen.delete(id); });
+  if (!state.calOpen.size && !state.calTouched) {
+    const next = nextEventFor(t);
+    if (next) state.calOpen.add(next.id);
+  }
+
   const body = months.map((m) => `
     <div class="month">${m.label}</div>
     ${m.events.map((e) => {
-      const open = e.id === state.eventId;
+      const open = state.calOpen.has(e.id);
       const counts = ["accepted", "declined", "none"].map((k) =>
         [...e.status.entries()].filter(([, v]) => v === k).length);
       const tags = [];
@@ -304,11 +321,12 @@ function renderCalendar() {
         const invited = counts[0] + counts[1] + counts[2];
         tags.push(`<span class="pill accepted">${counts[0]} of ${invited} accepted</span>`);
         const ds = deadlineState(e);
-        tags.push(`<span class="tag ${ds.closed ? "unreg" : "notice"}">${ds.chip}</span>`);
+        tags.push(`<span class="tag ${ds.closed ? "unreg" : "due"}">${ds.chip}</span>`);
       }
 
-      return `<div class="evrow ${open ? "is-open" : ""} ${e.draft ? "is-draft" : ""} ${e.cancelled ? "is-cancelled" : ""} ${e.past ? "is-past" : ""}">
-        <button class="evhead" data-event="${e.id}">
+      return `<div class="evrow ${open ? "is-open" : ""} ${e.draft ? "is-draft" : ""} ${e.cancelled ? "is-cancelled" : ""} ${e.past ? "is-past" : ""}"
+        id="evrow-${e.id}">
+        <button class="evhead" data-event="${e.id}" aria-expanded="${open}">
           <span class="evdate"><span class="d">${e.date.slice(8)}</span><span class="m">${e.dayName.slice(0, 3)}</span></span>
           <span class="evmain">
             <span class="t">${eventTitle(e)}</span>
@@ -338,7 +356,7 @@ function renderCalendar() {
                 Nothing locks: a parent can still change their answer, and the allocation re-runs when they do.</div>
             </div>
             <label class="dl-set">Hours before start
-              <input type="number" min="1" max="336" id="dl-${e.id}" value="${deadlineHoursFor(e)}">
+              <input type="number" min="1" max="336" id="dl-${e.id}" data-deadline="${e.id}" value="${deadlineHoursFor(e)}">
               <span class="sub">team default ${TEAM_BY_ID.get(e.teamId).settings.deadlineHours}</span>
             </label>
           </div>` : ""}
@@ -370,15 +388,34 @@ function renderCalendar() {
     <div class="notice">A draft is invisible to members and can be deleted. Once published it can only be
       cancelled, which asks for a reason and notifies everyone.</div>`;
 
+  /* Tapping a row never moves it: the detail opens downward beneath it and everything
+     above stays put. The scroll correction is kept for what can still shift a row — the
+     document getting shorter underneath it, and the browser clamping scroll at the end. */
   el("view-calendar").querySelectorAll("[data-event]").forEach((b) =>
-    b.onclick = () => { selectEvent(b.dataset.event); renderAll(); });
+    b.onclick = () => {
+      const id = b.dataset.event;
+      const before = el("evrow-" + id).getBoundingClientRect().top;
+      if (state.calOpen.has(id)) state.calOpen.delete(id);
+      else state.calOpen.add(id);
+      state.calTouched = true;
+      renderCalendar();
+      const after = el("evrow-" + id);
+      if (after) window.scrollBy(0, after.getBoundingClientRect().top - before);
+    });
   el("view-calendar").querySelectorAll("[data-publish]").forEach((b) =>
-    b.onclick = () => { publishEvent(ev()); rerun(); renderAll(); });
+    b.onclick = () => {
+      const e2 = eventById(b.dataset.publish);
+      publishEvent(e2);
+      if (e2.id === state.eventId) rerun();
+      renderAll();
+    });
   el("view-calendar").querySelectorAll("[data-delete]").forEach((b) =>
     b.onclick = () => {
-      const t2 = team(), e = ev();
-      t2.events.splice(t2.events.indexOf(e), 1);
-      selectEvent(nextEventFor(t2).id); renderAll();
+      const t2 = team(), e2 = eventById(b.dataset.delete);
+      t2.events.splice(t2.events.indexOf(e2), 1);
+      state.calOpen.delete(e2.id);
+      if (e2.id === state.eventId) selectEvent(nextEventFor(t2).id);
+      renderAll();
     });
   /* The card is the schedule's entry for this event; the answers live on their own
      screen. Following the link takes the event with it, so the picker over there is
@@ -390,12 +427,12 @@ function renderCalendar() {
       renderAll();
       showView("responses");
     });
-  const dl = el("dl-" + state.eventId);
-  if (dl) dl.onchange = () => {
-    const e2 = ev();
-    e2.deadlineHours = Math.max(1, Math.min(336, Number(dl.value) || 24));
-    renderAll();
-  };
+  el("view-calendar").querySelectorAll("[data-deadline]").forEach((dl) =>
+    dl.onchange = () => {
+      const e2 = eventById(dl.dataset.deadline);
+      e2.deadlineHours = Math.max(1, Math.min(336, Number(dl.value) || 24));
+      renderAll();
+    });
 }
 
 function publishEvent(e) {
@@ -474,7 +511,7 @@ function renderMembers() {
     const q = memberSearch.toLowerCase();
     rows = rows.filter((p) => p.name.toLowerCase().includes(q) || (p.school || "").toLowerCase().includes(q));
   }
-  rows.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+  rows.sort(bySurname);
 
   const body = rows.map((p) => {
     if (p.type === "child") {
@@ -527,7 +564,7 @@ function renderMembers() {
     </div>
     ${ratingLegend("margin:0 0 12px")}
     <div class="card"><table>
-      <thead><tr><th>Name</th><th>School <span class="lock">Admin only</span></th>
+      <thead><tr><th>Name</th><th>School</th>
         <th>Rating <span class="lock">Admin only</span></th><th>Role</th><th>Coaching</th>
         <th>Account</th><th></th></tr></thead>
       <tbody>${body || '<tr><td colspan="7" class="sub" style="padding:22px">Nobody matches that.</td></tr>'}</tbody>
@@ -547,10 +584,7 @@ function renderMembers() {
       renderAll();
     });
   el("view-members").querySelectorAll("[data-edit]").forEach((b) =>
-    b.onclick = () => {
-      state.editingId = Number(b.dataset.edit); state.editScope = "admin"; state.editError = "";
-      renderMembers();
-    });
+    b.onclick = () => openEditDialog(Number(b.dataset.edit), '[data-edit="' + b.dataset.edit + '"]'));
   wireEditModal();
 
   const s = el("member-search");
@@ -567,62 +601,115 @@ function editModal() {
   const p = BY_ID.get(state.editingId);
   if (!p) return "";
   const t = team();
-  const err = state.editError ? `<div class="field"><div class="err">${esc(state.editError)}</div></div>` : "";
+  const d = state.editDraft || {};
+  /* What was typed survives a validation failure. Re-rendering the form from the stored
+     record throws away every other edit silently, and they may not notice until later. */
+  const v = (k, fallback) => esc(d[k] !== undefined ? d[k] : fallback);
+  const bad = (f) => state.editErrorField === f ? " has-error" : "";
+  /* the message goes under the field it is about, and that field is marked */
+  const errFor = (f) => state.editErrorField === f
+    ? `<div class="err" id="err-${f}">${esc(state.editError)}</div>` : "";
+  const aria = (f) => state.editErrorField === f
+    ? ` aria-invalid="true" aria-describedby="err-${f}"` : "";
   const actions = `<div class="modal-actions">
       <button class="btn" id="f-cancel">Cancel</button>
       <button class="btn primary" id="f-save">Save changes</button></div>`;
 
   if (p.type === "child") {
     const known = !!p.school && t.schools.includes(p.school);
-    return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit member">
-      <h3>Edit ${esc(p.name)}</h3>
+    const current = d.school !== undefined ? d.school : (known ? p.school : "__other");
+    const otherText = d.schoolOther !== undefined ? d.schoolOther
+      : (known ? "" : (p.schoolPending || p.school || ""));
+    const isOther = current === "__other";
+    return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+      <h3 id="dlg-title">Edit ${esc(p.name)}</h3>
       <div class="msub">Child in ${t.name}</div>
       <div class="row2">
-        <div class="field"><label for="f-first">First name</label><input id="f-first" value="${esc(p.firstName)}"></div>
-        <div class="field"><label for="f-last">Surname</label><input id="f-last" value="${esc(p.lastName)}"></div>
+        <div class="field${bad("name")}"><label for="f-first">First name</label>
+          <input id="f-first" value="${v("firstName", p.firstName)}"${aria("name")}></div>
+        <div class="field${bad("name")}"><label for="f-last">Surname</label>
+          <input id="f-last" value="${v("lastName", p.lastName)}"></div>
       </div>
-      <div class="field"><label for="f-school">School</label>
-        <select id="f-school">
-          ${t.schools.map((s) => `<option value="${esc(s)}" ${s === p.school ? "selected" : ""}>${esc(s)}</option>`).join("")}
-          <option value="__other" ${known ? "" : "selected"}>Other&hellip;</option>
+      ${errFor("name")}
+      <div class="field${bad("school")}"><label for="f-school">School</label>
+        <select id="f-school"${aria("school")}>
+          ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === current ? "selected" : ""}>${esc(sc)}</option>`).join("")}
+          <option value="__other" ${isOther ? "selected" : ""}>Other&hellip;</option>
         </select>
-        <input id="f-school-other" placeholder="School name" value="${known ? "" : esc(p.schoolPending || p.school || "")}" ${known ? "hidden" : ""}>
+        <input id="f-school-other" placeholder="School name" value="${esc(otherText)}" ${isOther ? "" : "hidden"}>
+        ${errFor("school")}
         <div class="hint">A school typed in here is not added to the club list. It is held against this child and
           queued for a Club Admin to map or add. Until they do, the child counts as a singleton for allocation.</div>
       </div>
       <div class="field"><label for="f-rating">Ability rating</label>
         <select id="f-rating">${[1, 2, 3, 4, 5].map((n) =>
-          `<option value="${n}" ${n === p.rating ? "selected" : ""}>${n}${n === 1 ? " — strongest" : n === 5 ? " — needs most support" : ""}</option>`).join("")}</select>
+          `<option value="${n}" ${n === (d.rating !== undefined ? Number(d.rating) : p.rating) ? "selected" : ""}>${
+            n}${n === 1 ? " — strongest" : n === 5 ? " — needs most support" : ""}</option>`).join("")}</select>
         <div class="hint">1 is strongest and 5 is weakest. Admin only: never shown to any parent,
           and never given as the reason for a placement.</div>
       </div>
-      ${err}${actions}</div></div>`;
+      ${actions}</div></div>`;
   }
 
-  return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit member">
-    <h3>Edit ${esc(p.name)}</h3>
+  return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+    <h3 id="dlg-title">Edit ${esc(p.name)}</h3>
     <div class="msub">Adult${p.roleIn[t.id] ? " &middot; " + esc(ROLE_LABEL[p.roleIn[t.id]]) : ""} in ${t.name}</div>
     ${p.registered ? `<div class="alert notice" style="margin-bottom:14px">This member has signed up, so under the
       current spec they manage their own details and an admin cannot edit them. Editing is left open here so the
       prototype stays testable.</div>` : ""}
     <div class="row2">
-      <div class="field"><label for="f-first">First name</label><input id="f-first" value="${esc(p.firstName)}"></div>
-      <div class="field"><label for="f-last">Surname</label><input id="f-last" value="${esc(p.lastName)}"></div>
+      <div class="field${bad("name")}"><label for="f-first">First name</label>
+        <input id="f-first" value="${v("firstName", p.firstName)}"${aria("name")}></div>
+      <div class="field${bad("name")}"><label for="f-last">Surname</label>
+        <input id="f-last" value="${v("lastName", p.lastName)}"></div>
     </div>
-    <div class="field"><label for="f-email">Email address</label><input id="f-email" type="email" value="${esc(p.email)}">
-      <div class="hint">Required. It is how they are notified and how a signup is matched to this record.</div></div>
-    <div class="field"><label for="f-phone">Phone number</label><input id="f-phone" value="${esc(p.phone || "")}">
+    ${errFor("name")}
+    <div class="field${bad("email")}"><label for="f-email">Email address</label>
+      <input id="f-email" type="email" value="${v("email", p.email)}"${aria("email")}>
+      ${errFor("email")}
+      <div class="hint">It is how they are notified and how a signup is matched to this record.</div></div>
+    <div class="field"><label for="f-phone">Phone number</label>
+      <input id="f-phone" value="${v("phone", p.phone || "")}">
       <div class="hint">Optional, and used for tap-to-call only. There is no SMS anywhere in the app.</div></div>
-    ${err}${actions}</div></div>`;
+    ${actions}</div></div>`;
+}
+
+/* A dialog takes focus when it opens and hands it back to the control that opened it
+   when it closes — the same rules the parent's dialogs already follow. */
+function openEditDialog(id, triggerSelector) {
+  state.editingId = id;
+  state.editScope = "admin";
+  state.editError = "";
+  state.editErrorField = null;
+  state.editDraft = null;
+  state.editReturnTo = triggerSelector;
+  renderMembers();
+  const first = document.querySelector("#edit-backdrop input, #edit-backdrop select");
+  if (first) first.focus();
+}
+
+function closeEditDialog() {
+  const back = state.editReturnTo;
+  state.editingId = null;
+  state.editError = "";
+  state.editErrorField = null;
+  state.editDraft = null;
+  state.editReturnTo = null;
+  renderMembers();
+  const trigger = back && document.querySelector(back);
+  if (trigger) trigger.focus();
 }
 
 function wireEditModal() {
   const back = el("edit-backdrop");
-  if (!back) return;
-  const close = () => { state.editingId = null; state.editError = ""; renderMembers(); };
-  back.onclick = (e) => { if (e.target === back) close(); };
-  el("f-cancel").onclick = close;
-  document.onkeydown = (e) => { if (e.key === "Escape" && state.editingId) close(); };
+  if (!back || state.editScope !== "admin") return;
+  back.onclick = (e) => { if (e.target === back) closeEditDialog(); };
+  el("f-cancel").onclick = closeEditDialog;
+  document.onkeydown = (e) => {
+    if (!state.editingId) return;
+    if (e.key === "Escape") closeEditDialog();
+    else trapTab(e);                       // Tab stays inside while it is open
+  };
 
   const schoolSel = el("f-school");
   if (schoolSel) schoolSel.onchange = () => {
@@ -633,39 +720,66 @@ function wireEditModal() {
 
   el("f-save").onclick = () => {
     const p = BY_ID.get(state.editingId);
-    const first = el("f-first").value.trim(), last = el("f-last").value.trim();
-    if (!first || !last) { state.editError = "A first name and a surname are both needed."; return renderMembers(); }
+    const first = el("f-first").value, last = el("f-last").value;
+
+    /* everything typed is kept before anything is validated, so a failure never costs
+       the person the other fields — and nothing is written until it all passes */
+    const draft = { firstName: first, lastName: last };
+    if (p.type === "child") {
+      draft.school = el("f-school").value;
+      draft.schoolOther = el("f-school-other").value;
+      draft.rating = el("f-rating").value;
+    } else {
+      draft.email = el("f-email").value;
+      draft.phone = el("f-phone").value;
+    }
+    state.editDraft = draft;
+
+    const failWith = (field, message) => {
+      state.editErrorField = field;
+      state.editError = message;
+      renderMembers();
+      const node = el(field === "name" ? "f-first" : "f-" + field);
+      if (node) node.focus();
+    };
+
+    if (!first.trim() || !last.trim()) return failWith("name", "A first name and a surname are both needed.");
+
+    const school = p.type === "child"
+      ? (draft.school === "__other" ? draft.schoolOther.trim() : draft.school) : null;
+    if (p.type === "child" && !school) {
+      return failWith("school", "Type the school's name, or pick one from the list.");
+    }
+    if (p.type !== "child" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(draft.email.trim())) {
+      return failWith("email", "That email address doesn't look right. Every adult needs one.");
+    }
 
     let reason = null;
-    const wasName = p.name;
-    p.firstName = first; p.lastName = last; p.name = first + " " + last;
+    p.firstName = first.trim(); p.lastName = last.trim(); p.name = p.firstName + " " + p.lastName;
 
     if (p.type === "child") {
-      const sel = el("f-school").value;
-      const school = sel === "__other" ? el("f-school-other").value.trim() : sel;
-      if (!school) { state.editError = "Give the school a name, or pick one from the list."; return renderMembers(); }
-      const rating = Number(el("f-rating").value);
+      const rating = Number(draft.rating);
       const schoolChanged = school !== (p.school || p.schoolPending), ratingChanged = rating !== p.rating;
-      setSchool(p, school, sel === "__other");
+      setSchool(p, school, draft.school === "__other");
       p.rating = rating;
       if (ratingChanged || schoolChanged) {
         reason = p.name + "'s " + (ratingChanged && schoolChanged ? "rating and school were"
           : ratingChanged ? "rating was" : "school was") + " changed by an admin";
       }
     } else {
-      const email = el("f-email").value.trim();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        state.editError = "That email address doesn't look right. Every adult needs one.";
-        return renderMembers();
-      }
-      p.email = email;
-      p.phone = el("f-phone").value.trim();
+      p.email = draft.email.trim();
+      p.phone = draft.phone.trim();
     }
 
-    state.editingId = null; state.editError = "";
-    if (reason) { rerun(true, reason); renderAll(); }
-    else if (wasName !== p.name) renderAll();
-    else renderMembers();
+    /* a save that closes a dialog and says nothing leaves the person wondering */
+    const returnTo = state.editReturnTo;
+    state.editingId = null; state.editError = ""; state.editErrorField = null;
+    state.editDraft = null; state.editReturnTo = null;
+    toast(p.name + "'s details saved.");
+    if (reason) rerun(true, reason);
+    renderAll();
+    const trigger = returnTo && document.querySelector(returnTo);
+    if (trigger) trigger.focus();
   };
 }
 
@@ -746,6 +860,45 @@ function renderResponses() {
   const counts = { accepted: 0, declined: 0, none: 0 };
   people.forEach((p) => { counts[e.status.get(p.id) || "none"]++; });
 
+  /* Children and coaches answer separately and the two numbers mean different things:
+     one says how many are coming, the other whether there is anybody to run the night.
+     One combined total hid the second, and the coaches had no breakdown at all. */
+  const tally = (list) => {
+    const c = { accepted: 0, declined: 0, none: 0 };
+    list.forEach((p) => { c[e.status.get(p.id) || "none"]++; });
+    return c;
+  };
+  const kidTally = tally(kids), coachTally = tally(coaches);
+
+  /* Item 43: with coach-with-own-child on, an accepted coach whose own child is not
+     attending cannot be placed, so the number who accepted and the number who can
+     actually coach are two different numbers. Both are shown, as Squads already does.
+     Not on a social: nothing is allocated there, so nobody stands down from anything. */
+  const anchored = state.settings.coachWithOwnChild !== false;
+  const accKids = new Set(kids.filter((k) => e.status.get(k.id) === "accepted").map((k) => k.id));
+  const canCoach = !anchored ? coachTally.accepted
+    : coaches.filter((c) => e.status.get(c.id) === "accepted"
+        && c.childIds.some((id) => accKids.has(id))).length;
+
+  const tallyRow = (label, c, extra) => `
+    <div class="tally">
+      <div class="tk">${label}</div>
+      <div class="tv"><b class="t-ok">${c.accepted}</b> accepted <span class="tsep">&middot;</span>
+        <b class="t-no">${c.declined}</b> declined <span class="tsep">&middot;</span>
+        <b>${c.none}</b> no response</div>
+      ${extra ? `<div class="tx">${extra}</div>` : ""}
+    </div>`;
+
+  const tallies = `<div class="tallies">
+      ${tallyRow("Children", kidTally)}
+      ${tallyRow("Coaches", coachTally, (isSocial(e) || !coachTally.accepted) ? ""
+        : canCoach === coachTally.accepted
+          ? "All " + canCoach + " can coach on the night."
+          : "<b>" + canCoach + "</b> of them can coach on the night. "
+            + plural(coachTally.accepted - canCoach, "coach stands", "coaches stand")
+            + " down, because their own children aren't attending.")}
+    </div>`;
+
   if (respStatus !== "all") people = people.filter((p) => (e.status.get(p.id) || "none") === respStatus);
   if (respSearch) {
     const q = respSearch.toLowerCase();
@@ -756,7 +909,7 @@ function renderResponses() {
 
   const rows = people
     .sort((a, b) => rank[e.status.get(a.id) || "none"] - rank[e.status.get(b.id) || "none"]
-      || a.lastName.localeCompare(b.lastName))
+      || bySurname(a, b))
     .map((p) => {
       const st = e.status.get(p.id) || "none";
       const sub = p.type === "child"
@@ -767,15 +920,15 @@ function renderResponses() {
       const byAdmin = st !== "none" && e.answeredBy.get(p.id) === "admin";
       const choosing = state.respEditing === String(p.id);
       return `<tr>
-        <td><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></td>
-        <td>${statusTag(st)}${byAdmin ? '<div class="by-admin">Set by an admin</div>' : ""}</td>
+        <td class="respname"><div class="name">${esc(p.name)}</div><div class="sub">${sub}</div></td>
+        <td class="respstatus">${statusTag(st, false)}${byAdmin ? '<div class="by-admin">Set by an admin</div>' : ""}</td>
         <td class="pickcell">${choosing
           ? statusChooser(p, st)
           : `<button class="btn tiny" data-pick="${p.id}" aria-expanded="false"
                aria-label="Change the status for ${esc(p.name)}">Change&hellip;</button>`}</td></tr>`;
     }).join("");
 
-  el("view-responses").innerHTML = head + `
+  el("view-responses").innerHTML = head + tallies + `
     <div class="toolbar chiprow" role="group" aria-label="Who to show">
       ${RESP_AUDIENCE.map(([k, l]) => `<button class="chip" data-audience="${k}"
         aria-pressed="${respAudience === k}">${l}</button>`).join("")}
@@ -786,7 +939,7 @@ function renderResponses() {
       <div class="spacer"></div>
       <input class="search" id="resp-search" placeholder="Search a name" value="${esc(respSearch)}">
     </div>
-    <div class="card scrollx"><table>
+    <div class="card"><table class="resp-table">
       <thead><tr><th>Name</th><th>Status</th><th class="pickcell">Change</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="3" class="sub" style="padding:20px">Nobody matches that.</td></tr>`}</tbody>
     </table></div>
@@ -821,7 +974,7 @@ function renderResponses() {
   };
 }
 
-/* ---------------- groups ---------------- */
+/* ---------------- squads ---------------- */
 
 function renderGroups() {
   const e = ev(), t = team();
@@ -860,6 +1013,10 @@ function renderGroups() {
   const noSchool = acceptedChildren().filter((c) => !c.school).length;
   const nChildren = acceptedChildren().length, nCoaches = acceptedCoaches().length;
 
+  /* All seven settings from allocation-rules.md, at its defaults. Two were missing: the
+     maximum squad size, which is the only thing stopping everybody landing in one squad,
+     and coach with their own child, which hard rule 4 is written conditionally on —
+     leaving it out presented a team setting as a fixed rule. */
   const controls = `
     <div class="card card-pad settings">
       <div class="set-grid">
@@ -870,11 +1027,22 @@ function renderGroups() {
           <option value="0" ${state.groupCount === 0 ? "selected" : ""}>Auto</option>
           ${Array.from({ length: Math.max(s.maxGroups, 1) }, (_, i) => i + 1).map((n) =>
             `<option value="${n}" ${state.groupCount === n ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+        <label>Maximum size <input type="number" id="set-maxsize" min="1" max="60" value="${s.maxGroupSize}"></label>
         <label>Target size <input type="number" id="set-target" min="1" max="60" value="${s.targetGroupSize}"></label>
         <label>Minimum size <input type="number" id="set-min" min="1" max="60" value="${s.minGroupSize}"></label>
         <label>Coach ratio 1: <input type="number" id="set-ratio" min="1" max="40" value="${s.ratio}"></label>
         <label>Min coaches <input type="number" id="set-mincoach" min="0" max="6" value="${s.minCoachesPerGroup}"></label>
         <label>Max squads <input type="number" id="set-max" min="1" max="20" value="${s.maxGroups}"></label>
+        <label class="set-wide"><span>Coach with their own child</span>
+          <span class="segset" role="group" aria-label="Coach with their own child">
+            <button type="button" class="segbtn ${s.coachWithOwnChild ? "is-on" : ""}"
+              aria-pressed="${!!s.coachWithOwnChild}" data-cwoc="on">On</button>
+            <button type="button" class="segbtn ${s.coachWithOwnChild ? "" : "is-on"}"
+              aria-pressed="${!s.coachWithOwnChild}" data-cwoc="off">Off</button>
+          </span>
+          <span class="set-hint">${s.coachWithOwnChild
+            ? "A coach only ever goes in their own child's squad, and stands down on a night that child misses."
+            : "Coaches are spread wherever they are needed, and nobody stands down."}</span></label>
       </div>
     </div>`;
 
@@ -891,9 +1059,12 @@ function renderGroups() {
       ${state.lastMove.pairNote ? " " + esc(state.lastMove.pairNote) : ""}
       <button class="link" id="undo-note">dismiss</button></div>` : "";
 
+  /* Both numbers, per item 43: what was accepted, and what is actually available. */
   const stand = r.standDown && r.standDown.length ? `<div class="alert notice">
-      ${plural(r.standDown.length, "coach", "coaches")} accepted but their own children aren't attending,
-      so they aren't coaching tonight: ${esc(r.standDown.map((c) => c.name).join(", "))}.</div>` : "";
+      <b>${r.coachesAccepted} coaches accepted, ${r.coachesUsed} can coach.</b>
+      ${plural(r.standDown.length, "coach", "coaches")} stood down because their own children aren't
+      attending: ${esc(r.standDown.map((c) => c.name).join(", "))}. Every rule below is worked out from
+      the ${r.coachesUsed} who can coach.</div>` : "";
 
   const notes = (r.notes || []).map((n) => `<div class="alert notice">${esc(n)}</div>`).join("");
 
@@ -905,41 +1076,74 @@ function renderGroups() {
           + (c.groups === r.chosen.groups && !r.forced ? " &larr; closest to the target of " + s.targetGroupSize : "")
         : c.reason}${c.groups === r.chosen.groups && r.forced ? " &larr; set by hand" : ""}</td></tr>`).join("");
 
-  const checks = r.checks.map((c) => `
-    <div class="check ${c.ok ? "" : (c.soft ? "warn" : "fail")}">
-      <span class="mark">${c.ok ? "&check;" : (c.soft ? "!" : "&times;")}</span>
-      <span><b>${c.rule}</b> &mdash; <span class="d">${c.detail}</span></span></div>`).join("");
+  /* Quiet when everything passes, loud when something fails. Six rows of ticks took a
+     third of the screen to say "fine", and the failures are what an admin is here for.
+     The minimum squad size is an aim that gives way, not a hard rule, so it is shown
+     apart from them rather than with a tick in the same list. */
+  const hard = r.checks.filter((c) => c.kind === "hard");
+  const aims = r.checks.filter((c) => c.kind !== "hard");
+  const broken = hard.filter((c) => !c.ok);
+  const missed = aims.filter((c) => !c.ok);
 
-  const moveBox = (id, kind, fromId) => `<select class="moveto" data-move="${id}" data-movekind="${kind}"
-      aria-label="Move to another squad">
+  const checkRow = (c, cls) => `
+    <div class="check ${cls}">
+      <span class="mark" aria-hidden="true">${c.ok ? "&check;" : (cls === "fail" ? "&times;" : "!")}</span>
+      <span class="ct"><b>${c.rule}</b> &mdash; <span class="d">${c.detail}</span>
+        ${!c.ok && c.fix ? `<span class="cfix">${c.fix}</span>` : ""}</span></div>`;
+
+  const allRows = `<div class="check-list">
+      <div class="check-head">Hard rules &mdash; never broken by the allocation</div>
+      ${hard.map((c) => checkRow(c, c.ok ? "" : "fail")).join("")}
+      <div class="check-head">Aims &mdash; these give way to the hard rules</div>
+      ${aims.map((c) => checkRow(c, c.ok ? "" : "warn")).join("")}
+    </div>`;
+
+  const checks = (broken.length || missed.length)
+    ? `<div class="rules loud">
+        ${broken.map((c) => checkRow(c, "fail")).join("")}
+        ${missed.map((c) => checkRow(c, "warn")).join("")}
+        <details class="rules-more"><summary>All ${r.checks.length} rules</summary>${allRows}</details>
+      </div>`
+    : `<details class="rules quiet">
+        <summary><span class="mark" aria-hidden="true">&check;</span>
+          <b>Every rule is met.</b> <span class="d">${plural(hard.length, "hard rule", "hard rules")}
+          and ${plural(aims.length, "aim", "aims")}, all passing.</span></summary>
+        ${allRows}
+      </details>`;
+
+  /* The Move control is reachable by keyboard alone, per item 54 — it is in the document
+     for every row, and CSS reveals it on hover or when it takes focus. Dragging stays the
+     quick way; it is never the only way. */
+  const moveBox = (id, kind, fromId, who) => `<select class="moveto" data-move="${id}" data-movekind="${kind}"
+      aria-label="Move ${esc(who)} to another squad">
       <option value="">Move&hellip;</option>
       ${r.groups.filter((x) => x.id !== fromId).map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}
     </select>`;
 
   const cards = r.groups.map((g) => {
+    /* the per-school count chips came off: the rules panel already answers whether
+       affinity held, and answers it by name */
     const counts = [1, 2, 3, 4, 5].map((x) => g.children.filter((c) => c.rating === x).length);
-    const spread = counts.map((n, i) => n ? `<span style="flex:${n};background:var(--r${i + 1})" title="${n} rated ${i + 1}"></span>` : "").join("");
+    const spread = counts.map((n, i) => n
+      ? `<span class="sp sp${i + 1}" style="flex:${n}" title="${n} rated ${i + 1}"></span>` : "").join("");
     const spreadLabel = `<div class="spread-label">Ability spread &middot; ${counts
       .map((n, i) => n ? n + "&times;" + (i + 1) : null).filter(Boolean).join(", ")}</div>`;
-    const schools = [...new Set(g.children.map(schoolOf))].map((sc) => {
-      const n = g.children.filter((c) => schoolOf(c) === sc).length;
-      return `<span class="schooltag ${n === 1 ? "lone" : ""}">${esc(sc.split(",")[0])} ${n}</span>`;
-    }).join("");
-    const coaches = g.coaches.map((c) => {
+    const coaches = g.coaches.slice().sort(byFirstName).map((c) => {
       const kids = c.childIds.map((id) => BY_ID.get(id)).filter((k) => k && g.children.some((x) => x.id === k.id));
       return `<div class="person coach" draggable="true" data-person="${c.id}" data-kind="coach">
-        <span class="tag coach">Coach</span>
         <span class="nm">${esc(c.name)}${state.pins.has(c.id) ? ' <span class="pin" title="Pinned by a manual move">&#9679;</span>' : ""}</span>
         <span class="sub">${kids.length ? "with " + kids.map((k) => esc(k.firstName)).join(" &amp; ") : ""}</span>
-        ${moveBox(c.id, "coach", g.id)}</div>`;
+        ${moveBox(c.id, "coach", g.id, c.name)}</div>`;
     }).join("") || '<div class="sub" style="padding:3px 0">No coach</div>';
-    const kids = g.children.slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) => `
+    const kids = g.children.slice().sort(byFirstName).map((c) => `
       <div class="person" draggable="true" data-person="${c.id}" data-kind="child">
         <span class="nm">${esc(c.name)}${state.pins.has(c.id) ? ' <span class="pin" title="Pinned by a manual move">&#9679;</span>' : ""}</span>
-        ${state.mode === "school" ? `<span class="mini ${c.school ? "" : "none"}">${esc(schoolOf(c).split(",")[0].slice(0, 14))}</span>` : ""}
+        ${state.mode === "school" ? `<span class="mini ${c.school ? "" : "none"}">${esc(schoolOf(c))}</span>` : ""}
         ${ratingChip(c.rating)}
-        ${moveBox(c.id, "child", g.id)}</div>`).join("");
-    const bad = g.coaches.length < s.minCoachesPerGroup || g.children.length > (g.coaches.length || 0) * s.ratio;
+        ${moveBox(c.id, "child", g.id, c.name)}</div>`).join("");
+    const bad = g.coaches.length < s.minCoachesPerGroup
+      || g.children.length > (g.coaches.length || 0) * s.ratio
+      || g.children.length > s.maxGroupSize;
 
     return `<div class="group ${bad ? "bad" : ""}" data-group="${g.id}">
       <header><h3>${g.name}</h3>
@@ -947,30 +1151,31 @@ function renderGroups() {
       <div class="spread">${spread}</div>
       ${spreadLabel}
       <div class="section">
-        ${state.mode === "school" ? `<div class="schools">${schools}</div>` : ""}
-        <h4>Coaching</h4>${coaches}
-        <h4>Players</h4>${kids}
+        <h4>Coaches (${g.coaches.length})</h4>${coaches}
+        <h4>Players (${g.children.length})</h4>${kids}
       </div></div>`;
   }).join("");
 
   el("view-groups").innerHTML = head + controls + updated + fail + move + stand + notes + `
     <div class="banner">
       <div class="lead"><b>${plural(nChildren, "child", "children")}</b> and <b>${plural(nCoaches, "coach", "coaches")}</b> accepted${
-        r.coachesUsed !== nCoaches ? " (" + r.coachesUsed + " able to coach)" : ""},
+        r.coachesUsed !== nCoaches ? ", <b>" + r.coachesUsed + "</b> able to coach" : ""},
         split into <b>${plural(r.groups.length, "squad", "squads")}</b>${sizes.length
           ? " of " + Math.min(...sizes) + "&ndash;" + Math.max(...sizes) : ""}.</div>
       <details class="why"><summary>Why ${r.groups.length} squads?</summary>
         <table class="cand">${cands}</table></details>
     </div>
-    <div class="checks">${checks}</div>
+    ${checks}
     <div class="groups-head">
       <h3>${plural(r.groups.length, "squad", "squads")}</h3>
       <div class="spacer"></div>
-      <button class="btn" id="btn-undo" ${state.pins.size ? "" : "disabled"}>Undo manual moves${state.pins.size ? " (" + state.pins.size + ")" : ""}</button>
+      <button class="btn" id="btn-rerun">Re-run the allocation</button>
+      <button class="btn" id="btn-undo" ${state.pins.size ? "" : "disabled"}>Clear manual moves${
+        state.pins.size ? " (" + state.pins.size + ")" : ""}</button>
     </div>
     <div class="notice" style="margin-top:0">Drag a child or a coach onto another squad, or use the
-      <b>Move&hellip;</b> box beside any name. A manual move is pinned and survives a re-run, and moving one of
-      a coach and child pair moves the other with it.</div>
+      <b>Move&hellip;</b> box that appears beside a name on hover or focus. A manual move is pinned and
+      survives a re-run, and moving one of a coach and child pair moves the other with it.</div>
     ${ratingLegend("margin:0 0 12px")}
     ${state.mode === "school" && noSchool ? `<div class="alert notice">
       ${plural(noSchool, "child", "children")} attending ${noSchool === 1 ? "has" : "have"} no school recorded,
@@ -989,8 +1194,9 @@ function renderGroups() {
 
 function wireSettings() {
   const SETTING_LABEL = {
-    targetGroupSize: "Target group size", minGroupSize: "Minimum group size",
-    ratio: "Coach ratio", minCoachesPerGroup: "Minimum coaches per group", maxGroups: "Maximum groups"
+    maxGroupSize: "Maximum squad size", targetGroupSize: "Target squad size",
+    minGroupSize: "Minimum squad size", ratio: "Coach ratio",
+    minCoachesPerGroup: "Minimum coaches per squad", maxGroups: "Maximum squads"
   };
   const num = (id, key, min, max) => {
     const node = el(id); if (!node) return;
@@ -1004,9 +1210,22 @@ function wireSettings() {
       renderAll();
     };
   };
+  num("set-maxsize", "maxGroupSize", 1, 60);
   num("set-target", "targetGroupSize", 1, 60); num("set-min", "minGroupSize", 1, 60);
   num("set-ratio", "ratio", 1, 40); num("set-mincoach", "minCoachesPerGroup", 0, 6);
   num("set-max", "maxGroups", 1, 20);
+
+  /* A team setting, not a fixed rule: hard rule 4 and the whole stand-down arithmetic
+     only exist while it is on. See item 46. Writes nothing when the state it is given
+     is the state it already has. */
+  document.querySelectorAll("[data-cwoc]").forEach((b) =>
+    b.onclick = () => {
+      const on = b.dataset.cwoc === "on";
+      if (!!state.settings.coachWithOwnChild === on) return;
+      state.settings.coachWithOwnChild = on;
+      rerun(true, "Coach with their own child turned " + (on ? "on" : "off"));
+      renderAll();
+    });
   if (el("set-mode")) el("set-mode").onchange = (e) => {
     state.mode = e.target.value;
     rerun(true, "Mode changed to " + (state.mode === "ability" ? "balanced ability" : "school affinity"));
@@ -1014,12 +1233,19 @@ function wireSettings() {
   };
   if (el("set-count")) el("set-count").onchange = (e) => {
     state.groupCount = Number(e.target.value);
-    rerun(true, state.groupCount ? "Group count set to " + state.groupCount + " by hand"
-      : "Group count put back to automatic");
+    rerun(true, state.groupCount ? "Squad count set to " + state.groupCount + " by hand"
+      : "Squad count put back to automatic");
     renderAll();
   };
+  /* Two different actions. Re-run keeps the pins and reallocates everyone else around
+     them; clearing the pins throws the manual moves away and starts clean. Re-run is
+     always enabled: where it moves nobody it says so, and "nothing moved" is the useful
+     answer — a disabled button or an error for a predictable outcome is worse. */
+  if (el("btn-rerun")) el("btn-rerun").onclick = () => {
+    rerun(true, "Re-run by an admin"); renderAll();
+  };
   if (el("btn-undo")) el("btn-undo").onclick = () => {
-    state.lastMove = null; rerun(false, "Manual moves undone"); renderAll();
+    state.lastMove = null; rerun(false, "Manual moves cleared"); renderAll();
   };
   if (el("undo-note")) el("undo-note").onclick = () => { state.lastMove = null; renderGroups(); };
   if (el("dismiss-rerun")) el("dismiss-rerun").onclick = () => { state.rerunNotice = null; renderGroups(); };
@@ -1167,13 +1393,23 @@ function toast(message) {
   setTimeout(() => t.remove(), 5800);
 }
 
-/* "base" sensitivity puts Áine with the As rather than after Z */
+/* "base" sensitivity puts Áine with the As rather than after Z. With Irish given names
+   all through the club a plain code-point sort puts every fada-carrying name after Z,
+   so every list in the app sorts through this collator — the admin lists included. */
 const NAME_ORDER = new Intl.Collator("en", { sensitivity: "base" });
 const byFirstName = (a, b) =>
   NAME_ORDER.compare(a.firstName, b.firstName) || NAME_ORDER.compare(a.lastName, b.lastName);
+const bySurname = (a, b) =>
+  NAME_ORDER.compare(a.lastName, b.lastName) || NAME_ORDER.compare(a.firstName, b.firstName);
 
 const STATUS_MARK = { accepted: "&check;", declined: "&minus;", none: "&#9675;" };
-const statusTag = (st) => `<span class="st st-${st}"><span class="st-mark" aria-hidden="true">${STATUS_MARK[st]}</span>${STATUS_LABEL[st]}</span>`;
+/* `owed` is what makes the unanswered status amber, and amber means owed *by the
+   reader*. A parent looking at their own row owes that answer; an admin reading a list
+   does not, so the admin's copy is neutral with weight. Item 85 says exactly this, and
+   a rule that admits exceptions is not a rule. */
+const statusTag = (st, owed = true) =>
+  `<span class="st st-${st}${owed ? "" : " st-plain"}"><span class="st-mark" aria-hidden="true">${
+    STATUS_MARK[st]}</span>${STATUS_LABEL[st]}</span>`;
 
 /* who set the answer that is live now, and when */
 function answeredLine(e, personId) {
@@ -1881,6 +2117,8 @@ function signOut() {
   state.familyShowEarlier = false;
   state.familyEditing = null;
   state.eventPicked = false;
+  state.calOpen = new Set();
+  state.calTouched = false;
   el("app").hidden = true;
   el("signin").hidden = false;
   window.scrollTo(0, 0);

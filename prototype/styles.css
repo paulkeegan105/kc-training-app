@@ -24,9 +24,10 @@
   --warn: #964D01; --warn-bg: #FFDCC2; --warn-ink: #5F2E00;
   --neutral-bg: #EEEAF1; --neutral-ink: #4A4152; --notice-line: #8A7F96;
 
-  --r1: #3A0159; --r1-ink: #F6F1FA; --r2: #5C068C; --r2-ink: #F6F1FA;
-  --r3: #71309B; --r3-ink: #F6F1FA; --r4: #D1991C; --r4-ink: #1C1022;
-  --r5: #F0B323; --r5-ink: #1C1022;
+  /* The ability ramp is neutral. It used to run the club purple into the club gold,
+     which borrowed both brand colours for a thing that is neither interactive nor a
+     date tile. Lightness carries the ramp now, and the number carries the value. */
+  --r1: #3E3548; --r2: #5C5269; --r3: #7C7389; --r4: #A099AC; --r5: #C4BECE;
 
   --header: #4A0570; --header-ink: #F6F1FA; --header-sub: #EBDCF5;
   --tabbar: #5C068C; --tab-ink: #E2CDF0; --tab-on: #F6F1FA;
@@ -53,6 +54,9 @@
     --warn: #D16E02; --warn-bg: #562800; --warn-ink: #FED5B8;
     --neutral-bg: #2C2434; --neutral-ink: #BDB2C6; --notice-line: #6E6279;
 
+    /* the ramp runs the other way in dark, so step 1 still reads as the strong end */
+    --r1: #EFE9F4; --r2: #CBC3D6; --r3: #A69DB3; --r4: #837990; --r5: #625870;
+
     --header: #3A0559; --header-ink: #F6F1FA; --header-sub: #E4D2F2;
     --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #F6F1FA;
 
@@ -72,6 +76,7 @@
   --stop: #FF8C7A; --stop-bg: #3A1714; --stop-ink: #FFB4A6;
   --warn: #D16E02; --warn-bg: #562800; --warn-ink: #FED5B8;
   --neutral-bg: #2C2434; --neutral-ink: #BDB2C6; --notice-line: #6E6279;
+  --r1: #EFE9F4; --r2: #CBC3D6; --r3: #A69DB3; --r4: #837990; --r5: #625870;
   --header: #3A0559; --header-ink: #F6F1FA; --header-sub: #E4D2F2;
   --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #F6F1FA;
 
@@ -178,20 +183,31 @@ tbody tr:last-child td { border-bottom: 0; }
 
 .lock {
   display: inline-block; margin-left: 6px; font-size: 9.5px; letter-spacing: .04em;
-  background: var(--brand-soft); color: var(--brand-soft-ink); padding: 2px 6px; border-radius: 4px;
+  background: var(--neutral-bg); color: var(--neutral-ink); padding: 2px 6px; border-radius: 4px;
   text-transform: uppercase; font-weight: 700; vertical-align: middle;
 }
-.rating { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-size: 12.5px; font-weight: 700; }
-.r1 { background: var(--r1); color: var(--r1-ink); } .r2 { background: var(--r2); color: var(--r2-ink); }
-.r3 { background: var(--r3); color: var(--r3-ink); } .r4 { background: var(--r4); color: var(--r4-ink); }
-.r5 { background: var(--r5); color: var(--r5-ink); }
+/* One badge, not five. A rating is admin-only reference, neither interactive nor owed,
+   so it takes weight and a neutral ground; the digit is the value. The hairline keeps it
+   legible where the row highlights on hover. */
+.rating {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
+  font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--neutral-bg); color: var(--neutral-ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
 
 .tag { display: inline-block; font-size: 11.5px; font-weight: 650; padding: 3px 8px; border-radius: 5px; }
 /* a role label and an open-deadline chip: neither is owed by the reader, so
    neither takes amber. The words tell the two deadline chips apart. */
 .tag.coach { background: var(--neutral-bg); color: var(--neutral-ink); }
-.tag.notice { color: var(--neutral-ink); box-shadow: inset 0 0 0 1px var(--notice-line); }
-.tag.reg { background: var(--brand-soft); color: var(--brand-soft-ink); }
+/* A deadline chip, open or closed. It was picking up the gold left border and the
+   padding from the prose `.notice` bar below, which is a different thing wearing the
+   same class name — so it has a name of its own. Neither state is owed by an admin
+   reading a list, so neither takes amber. */
+.tag.due { color: var(--neutral-ink); box-shadow: inset 0 0 0 1px var(--notice-line); font-weight: 650; }
+/* registered and unregistered are both states of a record, neither interactive nor
+   owed, so neither takes the brand purple. Weight and the word tell them apart. */
+.tag.reg { background: var(--neutral-bg); color: var(--neutral-ink); font-weight: 700; }
 .tag.unreg { background: var(--neutral-bg); color: var(--neutral-ink); }
 .tag.draft { background: var(--neutral-bg); color: var(--neutral-ink); }
 .tag.cancelled { background: var(--stop-bg); color: var(--stop-ink); }
@@ -226,16 +242,35 @@ tbody tr:last-child td { border-bottom: 0; }
 .evrow.is-open { border-left-color: var(--brand); }
 .evrow.is-draft { border-left-color: var(--muted); border-style: dashed solid solid dashed; }
 .evrow.is-cancelled { border-left-color: var(--stop); }
-.evrow.is-past { opacity: .72; }
-.evhead { display: flex; align-items: center; gap: 14px; padding: 13px 16px; cursor: pointer; width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: left; }
+/* Past events recede, per item 71: no raised surface, no accent, a quieter title. They
+   keep their place in the list and everything in them. */
+.evrow.is-past { box-shadow: none; background: var(--surface-2); }
+.evrow.is-past .evmain .t { font-weight: 600; color: var(--muted); }
+/* the row is still a button, so it still needs to answer a hover */
+.evrow.is-past .evhead:hover { background: var(--line); }
+.evrow.is-past.is-open { border-left-color: var(--line); }
+
+.evhead { display: flex; align-items: center; gap: 14px; padding: 13px 16px; cursor: pointer; width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: left; flex-wrap: wrap; }
 .evhead:hover { background: var(--surface-2); }
 .evdate { flex: none; width: 46px; text-align: center; }
 .evdate .d { font-size: 19px; font-weight: 700; line-height: 1; }
 .evdate .m { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
-.evmain { flex: 1; min-width: 0; }
-.evmain .t { font-weight: 650; font-size: 14.5px; }
-.evmain .s { color: var(--muted); font-size: 12.5px; }
-.evtags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+/* The title and the sub are their own lines. Left inline they ran together into one
+   paragraph, and with the tag column taking its content width there was nothing left
+   for them at phone width — a title wrapped one word per line. */
+.evmain { flex: 1 1 210px; min-width: 0; }
+.evmain .t { display: block; font-weight: 650; font-size: 14.5px; line-height: 1.3; }
+.evmain .s { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.evtags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 0 1 auto; }
+
+/* Below this the tag column drops to its own line under the title rather than
+   squeezing it. 46px tile + 14px gap lines it up with the text above. */
+@media (max-width: 620px) {
+  .evhead { gap: 8px 14px; }
+  .evtags { flex: 1 0 100%; justify-content: flex-start; padding-left: 60px; }
+  .deadline-bar > div:first-child { min-width: 0; }
+  .dl-set input { width: 100%; }
+}
 .evbody { padding: 0 16px 16px; border-top: 1px solid var(--surface-2); }
 .mini-stats { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0; }
 .mini-stats div { font-size: 13px; }
@@ -265,16 +300,50 @@ tbody tr:last-child td { border-bottom: 0; }
 /* an override is a fact about the answer, so it is marked on the status itself */
 .by-admin { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
 
-/* a table wider than the phone scrolls inside its own card rather than pushing the
-   page sideways, which main's overflow would otherwise clip the last column off */
-.card.scrollx { overflow-x: auto; }
+/* ---- responses ---- */
+/* Children and coaches counted apart. One combined total answered "how many are
+   coming" and hid "is there anybody to run the night". */
+.tallies { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+.tally { flex: 1 1 260px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 13px 15px; }
+.tally .tk { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+.tally .tv { font-size: 13.5px; margin-top: 4px; }
+.tally .tv b { font-size: 17px; font-weight: 700; }
+.tally .tv .t-ok { color: var(--ok); } .tally .tv .t-no { color: var(--stop); }
+.tally .tsep { color: var(--muted); }
+.tally .tx { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
 
-.notice { border-left: 3px solid var(--gold); padding-left: 12px; margin: 14px 0; font-size: 13.5px; color: var(--muted); }
+/* At phone width the table becomes a card per person. A three-column table cannot hold
+   a name, a status and a control inside 375px, and scrolling it sideways hides the
+   control that is the point of the row. */
+@media (max-width: 620px) {
+  .resp-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
+  .resp-table, .resp-table tbody, .resp-table tr, .resp-table td { display: block; width: 100%; }
+  .resp-table tr { padding: 12px 14px; border-bottom: 1px solid var(--surface-2); }
+  .resp-table tr:last-child { border-bottom: 0; }
+  .resp-table td { padding: 0; border: 0; }
+  .resp-table .respstatus { margin-top: 6px; }
+  .resp-table .pickcell { margin-top: 9px; text-align: left; white-space: normal; }
+  .resp-table .st-choose { justify-content: flex-start; }
+}
+
+.notice { border-left: 3px solid var(--notice-line); padding-left: 12px; margin: 14px 0; font-size: 13.5px; color: var(--muted); }
 
 /* ---- groups ---- */
 .settings { margin-bottom: 14px; }
 .set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
 .set-grid label { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+.set-grid .set-wide { grid-column: 1 / -1; }
+.set-hint { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 12.5px; color: var(--muted); }
+.segset { display: inline-flex; gap: 0; align-self: flex-start; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.segbtn {
+  font: inherit; font-size: 13.5px; font-weight: 650; text-transform: none; letter-spacing: 0;
+  padding: 7px 18px; cursor: pointer; border: 0; background: var(--surface); color: var(--ink);
+}
+.segbtn + .segbtn { border-left: 1px solid var(--line); }
+.segbtn:hover { background: var(--surface-2); }
+/* the selected state of a control is one of the four things purple is for */
+.segbtn.is-on { background: var(--brand); color: var(--brand-ink); }
+.segbtn:focus-visible { outline-offset: -3px; }
 .set-grid input, .set-grid select {
   font: inherit; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink);
   padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
@@ -286,7 +355,7 @@ details.why summary { cursor: pointer; font-size: 13.5px; color: var(--brand); f
 .cand { width: 100%; margin-top: 10px; font-size: 13px; }
 .cand td { padding: 5px 10px 5px 0; border: 0; }
 .cand .no { color: var(--muted); } .cand .yes { color: var(--ink); }
-.cand tr.chosen td { font-weight: 650; color: var(--brand); }
+.cand tr.chosen td { font-weight: 700; color: var(--ink); }
 
 .alert { border-radius: 10px; padding: 12px 15px; margin-bottom: 12px; font-size: 13.5px; line-height: 1.45; }
 .alert.stop { background: var(--stop-bg); color: var(--stop-ink); border-left: 3px solid var(--stop); }
@@ -296,35 +365,92 @@ details.why summary { cursor: pointer; font-size: 13.5px; color: var(--brand); f
 .alert.ok { background: var(--ok-bg); color: var(--ok-ink); border-left: 3px solid var(--ok); }
 button.link { background: none; border: 0; font: inherit; font-size: 12.5px; color: inherit; text-decoration: underline; cursor: pointer; padding: 0 0 0 6px; }
 
-.checks { display: grid; gap: 8px; margin-bottom: 16px; }
+/* One line while everything passes, with the detail available on demand; the failures
+   themselves when there are any. */
+.rules { margin-bottom: 16px; }
+.rules.quiet { background: var(--surface); border-radius: 9px; box-shadow: var(--shadow); padding: 11px 14px; font-size: 13.5px; }
+.rules.quiet > summary { cursor: pointer; list-style: none; display: flex; gap: 10px; align-items: baseline; }
+.rules.quiet > summary::-webkit-details-marker { display: none; }
+.rules.quiet > summary::after { content: "show all"; margin-left: auto; font-size: 12.5px; color: var(--muted); text-decoration: underline; }
+.rules.quiet[open] > summary::after { content: "hide"; }
+.rules.quiet > summary .mark { color: var(--ok); font-weight: 700; }
+.rules.quiet > summary .d { color: var(--muted); font-size: 12.5px; }
+.rules.loud { display: grid; gap: 8px; }
+.rules-more { margin-top: 2px; }
+.rules-more > summary { cursor: pointer; font-size: 13px; color: var(--muted); text-decoration: underline; }
+.check-list { display: grid; gap: 8px; margin-top: 10px; }
+.check-head { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; margin-top: 4px; }
+
 .check { display: flex; gap: 10px; align-items: baseline; background: var(--surface); border-radius: 9px; padding: 11px 14px; box-shadow: var(--shadow); font-size: 13.5px; }
+.check-list .check { box-shadow: none; background: var(--surface-2); }
+.check .ct { flex: 1; }
 .check .mark { font-weight: 700; color: var(--ok); flex: none; }
-.check.warn .mark { color: var(--notice-line); } .check.fail .mark { color: var(--stop); }
+/* A broken rule is not owed by the admin, so it cannot be amber; red already means
+   declined, so the marker carries weight as well as colour. See item 92. */
+.check.fail { box-shadow: inset 0 0 0 1px var(--stop); }
+.check.fail .mark { color: var(--stop); }
+.check.fail .ct > b { color: var(--stop-ink); }
+.check.warn .mark { color: var(--notice-line); }
+.check.warn .ct > b { font-weight: 700; }
 .check .d { color: var(--muted); font-size: 12.5px; }
+.check .cfix { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 600; }
 
 .groups-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .groups-head h3 { font-size: 15px; }
-.groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+/* wide enough for a name, a whole school and a rating on one line */
+.groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
 .group { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .group header { padding: 13px 15px; border-bottom: 1px solid var(--surface-2); display: flex; align-items: center; gap: 8px; }
 .group header h3 { font-size: 15px; flex: 1; }
 .group header .n { font-size: 12.5px; color: var(--muted); }
-.spread { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 0 15px 12px; }
+/* A neutral ramp. Five greys inside 6px of height do not tell themselves apart on
+   lightness alone, so a hairline of the card behind separates the blocks; the label
+   under it carries the numbers either way. */
+.spread { display: flex; gap: 1px; height: 6px; border-radius: 3px; overflow: hidden; margin: 0 15px 12px; }
+.spread .sp1 { background: var(--r1); } .spread .sp2 { background: var(--r2); }
+.spread .sp3 { background: var(--r3); } .spread .sp4 { background: var(--r4); }
+.spread .sp5 { background: var(--r5); }
 .group .section { padding: 0 15px 13px; }
 .group .section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 12px 0 7px; font-weight: 700; }
 .group.bad { outline: 2px solid var(--stop); outline-offset: -1px; }
 .group.over { outline: 2px dashed var(--brand); outline-offset: -1px; background: var(--brand-soft); }
 
-.person { display: flex; align-items: center; gap: 8px; padding: 3px 5px; margin: 0 -5px; font-size: 13.5px; cursor: grab; border-radius: 6px; }
-.person:hover { background: var(--surface-2); }
+.person { position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 5px; margin: 0 -5px; font-size: 13.5px; cursor: grab; border-radius: 6px; flex-wrap: wrap; }
+.person:hover, .person:focus-within { background: var(--surface-2); }
 .person.dragging { opacity: .35; }
-.person .nm { flex: 1; }
+.person .nm { flex: 1 1 auto; min-width: 0; }
 .person.coach .nm { font-weight: 600; }
 .person .pin { color: var(--muted); font-size: 10px; vertical-align: middle; }
-.person .mini { font-size: 10.5px; color: var(--muted); background: var(--surface-2); padding: 2px 5px; border-radius: 4px; }
-.schools { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
-.schooltag { font-size: 10.5px; color: var(--muted); background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
-.schooltag.lone { background: var(--neutral-bg); color: var(--neutral-ink); font-weight: 650; }
+/* The school is the whole school. "Our Lady's Gro" and "Gaelscoil Thao" are not names
+   anybody can use, and the chip wraps rather than being cut. */
+.person .mini { font-size: 10.5px; color: var(--muted); background: var(--surface-2); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+.person:hover .mini, .person:focus-within .mini { background: var(--neutral-bg); }
+
+/* The Move control is in the document for every row — item 54 requires a keyboard path,
+   and an element that is display:none or visibility:hidden cannot take focus — but it
+   shows itself only when the row is hovered or something in it has focus. It sits over
+   the end of the row rather than in the flow, so eight names are eight names and the
+   school beside them keeps the width the truncation used to take. */
+.person .moveto {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  opacity: 0; pointer-events: none; max-width: 104px;
+  box-shadow: 0 0 0 4px var(--surface-2);
+}
+.person:hover .moveto, .person:focus-within .moveto {
+  opacity: 1; pointer-events: auto;
+}
+/* A phone has neither hover nor a keyboard, so the control has to be permanently there
+   — an admin sorting squads pitch-side is exactly the reader allocation-rules had in
+   mind. The name takes its own line and the school, the rating and the control share
+   the next, rather than the control wrapping under each row on its own. */
+@media (hover: none) {
+  .person { align-items: baseline; }
+  .person .nm { flex: 1 0 100%; }
+  .person .moveto {
+    position: static; transform: none; opacity: 1; pointer-events: auto;
+    box-shadow: none; margin-left: auto;
+  }
+}
 
 .switch { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
 .switch input { margin: 0; accent-color: var(--brand); cursor: pointer; }
@@ -435,14 +561,12 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .spread-label { margin: -7px 15px 10px; font-size: 11px; color: var(--muted); font-weight: 600; }
 
 .moveto {
-  font: inherit; font-size: 11.5px; padding: 2px 4px; border-radius: 6px;
-  border: 1px solid var(--line); background: var(--surface); color: var(--muted); max-width: 82px;
+  font: inherit; font-size: 11.5px; padding: 3px 5px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
 }
 .moveto:hover, .moveto:focus { color: var(--ink); border-color: var(--brand); }
 /* an admin reading a list is not the one who owes this answer, so it is not amber */
 .person .mini.none { background: var(--neutral-bg); color: var(--neutral-ink); font-weight: 650; }
-.groups { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-
 /* both answers carry the same weight — neither is nudged */
 .btn.choice { background: var(--surface); border: 1px solid var(--muted); color: var(--ink); font-weight: 650; }
 .btn.choice:hover { border-color: var(--brand); background: var(--surface-2); }
@@ -494,6 +618,15 @@ main { overflow-x: hidden; }
   border: 1px solid var(--warn); border-radius: 999px; padding: 2px 9px 2px 5px;
 }
 .st-none .st-mark { background: transparent; border: 1.5px solid currentColor; }
+
+/* The same status on an admin surface. An admin reading a list is not the person who
+   owes that answer, so it is not amber to them — item 85 says so in as many words, and
+   a rule that admits exceptions is not a rule. The weight still marks it out as the one
+   status still asking for something. */
+.st-plain.st-none {
+  color: var(--ink); background: var(--neutral-bg);
+  border: 1px solid var(--notice-line); font-weight: 700;
+}
 
 /* Weight says which one is still asking for something. Accepted and declined are
    settled and can sit at regular weight; no response is the only one wanting a tap,

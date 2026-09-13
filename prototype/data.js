@@ -147,7 +147,10 @@ const TEAMS = [
     id: "u9", name: "Under 9", shortName: "U9", mode: "school",
     children: 90, coaches: 15, twoChild: 2, noSchool: 4,
     ratings: [11, 20, 28, 20, 11],
-    settings: { maxGroups: 10, minCoachesPerGroup: 1, ratio: 8, targetGroupSize: 8, minGroupSize: 6, deadlineHours: 24 },
+    /* The three sizes are the working defaults in allocation-rules.md — 12, 8 and 5 —
+       for every team. The ratio is the one number that differs by age group. */
+    settings: { maxGroups: 10, maxGroupSize: 12, minCoachesPerGroup: 1, ratio: 8,
+      targetGroupSize: 8, minGroupSize: 5, coachWithOwnChild: true, deadlineHours: 24 },
     schools: [
       { name: "Our Lady's Grove", count: 24 }, { name: "St Laurence's NS", count: 20 },
       { name: "Mount Anville NS", count: 16 }, { name: "Taney NS", count: 13 },
@@ -158,7 +161,8 @@ const TEAMS = [
     id: "u11", name: "Under 11", shortName: "U11", mode: "ability",
     children: 64, coaches: 11, twoChild: 1, noSchool: 3,
     ratings: [8, 14, 20, 14, 8],
-    settings: { maxGroups: 10, minCoachesPerGroup: 1, ratio: 10, targetGroupSize: 10, minGroupSize: 7, deadlineHours: 24 },
+    settings: { maxGroups: 10, maxGroupSize: 12, minCoachesPerGroup: 1, ratio: 10,
+      targetGroupSize: 8, minGroupSize: 5, coachWithOwnChild: true, deadlineHours: 24 },
     schools: [
       { name: "Our Lady's Grove", count: 17 }, { name: "St Laurence's NS", count: 15 },
       { name: "Mount Anville NS", count: 12 }, { name: "Taney NS", count: 9 },
@@ -508,7 +512,7 @@ function nextEventFor(team) {
 
 const SCENARIO = (function () {
   const coach = BY_ID.get(PERSONAS[1].id);            // Aileen: coaches U9, one child
-  const plain = BY_ID.get(PERSONAS[2].id);            // Helena: no role, a child in each group
+  const plain = BY_ID.get(PERSONAS[2].id);            // Helena: no role, a child in each age group
   const kidsOf = (a) => a.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
   const coachKid = kidsOf(coach)[0];                                  // U9
   const u9Kid = kidsOf(plain).find((k) => k.teamId === "u9");

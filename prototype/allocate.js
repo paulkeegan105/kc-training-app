@@ -1,15 +1,22 @@
-/* Group allocation, following allocation-rules.md.
-   Modes: balanced ability and school affinity. */
+/* Squad allocation, following allocation-rules.md.
+   Modes: balanced ability and school affinity.
+
+   The setting keys here still read "group" where every surface reads "squad". They are
+   the allocator's internal names and no reader ever sees them; renaming them through
+   three files would be a mechanical change to throwaway code, which is the reasoning
+   already recorded for px type at item 57. */
 
 const DEFAULT_SETTINGS = {
   maxGroups: 10,
+  maxGroupSize: 12,    // a hard cap: the ratio alone never stops everybody landing in one squad
   minCoachesPerGroup: 1,
-  ratio: 8,            // ceiling on children per coach, checked within each group
+  ratio: 8,            // ceiling on children per coach, checked within each squad
   targetGroupSize: 8,
-  minGroupSize: 6
+  minGroupSize: 5,
+  coachWithOwnChild: true
 };
 
-/* sizes as even as the numbers allow, remainder one per group */
+/* sizes as even as the numbers allow, remainder one per squad */
 function splitEven(total, parts) {
   const base = Math.floor(total / parts), rem = total % parts;
   return Array.from({ length: parts }, (_, i) => base + (i < rem ? 1 : 0));
@@ -39,7 +46,7 @@ function assignCoachCounts(sizes, coachCount, s) {
 }
 
 /* spread coaches evenly with no regard for the ratio — only used when the admin
-   forces a group count the rules can't satisfy */
+   forces a squad count the rules can't satisfy */
 function spreadCoachesAnyway(groupCount, coachCount) {
   return splitEven(coachCount, groupCount);
 }
@@ -50,7 +57,10 @@ function evaluateGroupCounts(nChildren, nCoaches, s) {
     const sizes = splitEven(nChildren, g);
     const row = { groups: g, sizes, avg: nChildren / g, feasible: false, reason: "" };
     if (nChildren === 0) { row.reason = "nobody has accepted"; rows.push(row); continue; }
-    if (Math.min(...sizes) < s.minGroupSize) {
+    /* the cap is checked before the aims: it is the one size that never gives way */
+    if (Math.max(...sizes) > s.maxGroupSize) {
+      row.reason = "would put a squad over the maximum of " + s.maxGroupSize;
+    } else if (Math.min(...sizes) < s.minGroupSize) {
       row.reason = "would put a squad below the minimum of " + s.minGroupSize;
     } else if (nCoaches < g * s.minCoachesPerGroup) {
       row.reason = "not enough coaches for " + s.minCoachesPerGroup + " per squad";
@@ -79,6 +89,16 @@ function suggestFix(nChildren, nCoaches, s) {
   for (let r = s.ratio + 1; r <= s.ratio + 12; r++) {
     if (evaluateGroupCounts(nChildren, nCoaches, { ...s, ratio: r }).some((x) => x.feasible)) {
       return "a 1:" + r + " ratio would make it work";
+    }
+  }
+  for (let n = s.maxGroups + 1; n <= s.maxGroups + 10; n++) {
+    if (evaluateGroupCounts(nChildren, nCoaches, { ...s, maxGroups: n }).some((x) => x.feasible)) {
+      return "allowing " + n + " squads instead of " + s.maxGroups + " would make it work";
+    }
+  }
+  for (let m = s.maxGroupSize + 1; m <= s.maxGroupSize + 12; m++) {
+    if (evaluateGroupCounts(nChildren, nCoaches, { ...s, maxGroupSize: m }).some((x) => x.feasible)) {
+      return "raising the maximum squad size to " + m + " would make it work";
     }
   }
   return "no combination of the current settings works for this turnout";
@@ -159,8 +179,8 @@ function placeSchoolAffinity(groups, unplaced, allAccepted) {
     });
   });
 
-  /* 3. then each school in pairs, spread across the groups holding fewest of it.
-        Group sizes outrank the mode, so a block only goes where there is room. */
+  /* 3. then each school in pairs, spread across the squads holding fewest of it.
+        Squad sizes outrank the mode, so a block only goes where there is room. */
   [...pool.entries()]
     .sort((a, b) => b[1].length - a[1].length)
     .forEach(([school, kids]) => {
@@ -197,9 +217,12 @@ function allocate(opts) {
   const attendingKids = (coach) =>
     coach.childIds.map((id) => byId.get(id)).filter((c) => childSet.has(c.id));
 
-  // a coach whose own children aren't attending can't be placed, so they aren't coaching tonight
-  const coaching = coaches.filter((c) => attendingKids(c).length);
-  const standDown = coaches.filter((c) => !attendingKids(c).length);
+  /* With coach-with-own-child on, a coach goes in their own child's squad and nowhere
+     else, so a coach whose children aren't attending can't be placed and stands down.
+     With it off there is no anchor, nobody stands down, and every acceptance counts. */
+  const anchored = s.coachWithOwnChild !== false;
+  const coaching = anchored ? coaches.filter((c) => attendingKids(c).length) : coaches.slice();
+  const standDown = anchored ? coaches.filter((c) => !attendingKids(c).length) : [];
 
   const candidates = evaluateGroupCounts(children.length, coaching.length, s);
   const feasible = candidates.filter((c) => c.feasible);
@@ -225,9 +248,10 @@ function allocate(opts) {
     const fallback = Math.max(1, Math.min(s.maxGroups, coaching.length || 1, wanted));
     chosen = candidates.find((c) => c.groups === fallback) || candidates[0]
       || { groups: 1, sizes: [children.length], reason: "" };
+    const fix = suggestFix(children.length, coaching.length, s);
     failure = "No squad count satisfies every rule for " + children.length + " children and "
       + coaching.length + (coaching.length === 1 ? " coach. " : " coaches. ")
-      + suggestFix(children.length, coaching.length, s) + ".";
+      + fix.charAt(0).toUpperCase() + fix.slice(1) + ".";
   }
 
   const count = Math.max(1, chosen.groups);
@@ -267,12 +291,14 @@ function allocate(opts) {
 
   const freeCoaches = coaching.filter((c) => pins.get(c.id) === undefined);
   const withKids = freeCoaches
-    .map((c) => ({ coach: c, kids: attendingKids(c) }))
+    .map((c) => ({ coach: c, kids: anchored ? attendingKids(c) : [] }))
     .sort((a, b) => b.kids.length - a.kids.length);
 
   withKids.forEach((entry, i) => {
     const g = slots[i] || bestRoom(groups);
     g.coaches.push(entry.coach);
+    /* only the anchored mode drags the coach's children along; off, they are placed
+       with everyone else by the mode and the even size rule */
     entry.kids.forEach((k) => {
       if (!placed.has(k.id)) { g.children.push(k); placed.add(k.id); }
     });
@@ -286,38 +312,43 @@ function allocate(opts) {
 
   return {
     groups, chosen, candidates, settings: s, mode, forced, failed, failure,
-    standDown, coachesUsed: coaching.length, notes,
+    standDown, coachesUsed: coaching.length, coachesAccepted: coaches.length, notes,
     checks: checkRules(groups, byId, s, mode, children)
   };
 }
 
-/* ---------------- rules, reported rather than assumed ---------------- */
+/* ---------------- rules, reported rather than assumed ----------------
+
+   Each check says whether it is a hard rule or an aim. The hard rules are never broken
+   by the allocation and are the ones worth shouting about; the minimum squad size and
+   the school-affinity floor are aims that give way, and showing them with a tick beside
+   the hard rules said they were the same kind of thing. See allocation-rules.md,
+   "Hard rules".                                                                       */
 
 function checkRules(groups, byId, s, mode, accepted) {
   const out = [];
   const live = groups.filter((g) => g.children.length || g.coaches.length);
+  const names = (list) => list.map((g) => g.name).join(", ");
 
   const short = live.filter((g) => g.coaches.length < s.minCoachesPerGroup);
   out.push({
+    kind: "hard",
     rule: "Every squad has at least " + s.minCoachesPerGroup
       + (s.minCoachesPerGroup === 1 ? " coach" : " coaches"),
     ok: short.length === 0,
-    detail: short.length ? short.map((g) => g.name).join(", ") + " short of coaches" : "all squads staffed"
+    detail: short.length ? names(short) + " short of coaches" : "all squads staffed",
+    fix: short.length ? "Move a coach into " + names(short) + ", or use fewer squads." : ""
   });
 
-  const split = [];
-  groups.forEach((g) => g.coaches.forEach((c) => {
-    c.childIds.forEach((id) => {
-      const child = byId.get(id);
-      const here = g.children.some((k) => k.id === id);
-      const elsewhere = groups.some((o) => o !== g && o.children.some((k) => k.id === id));
-      if (!here && elsewhere) split.push(c.name + " away from " + child.firstName);
-    });
-  }));
+  const big = live.filter((g) => g.children.length > s.maxGroupSize);
   out.push({
-    rule: "A coach is in the same squad as their own children",
-    ok: split.length === 0,
-    detail: split.length ? split.join("; ") : "every coaching parent is with their own children"
+    kind: "hard",
+    rule: "No squad over the maximum of " + s.maxGroupSize,
+    ok: big.length === 0,
+    detail: big.length
+      ? big.map((g) => g.name + " has " + g.children.length).join(", ")
+      : "biggest squad is " + (live.length ? Math.max(...live.map((g) => g.children.length)) : 0),
+    fix: big.length ? "Use more squads, or raise the maximum squad size." : ""
   });
 
   const over = live.filter((g) => g.coaches.length === 0 ? g.children.length > 0
@@ -325,20 +356,48 @@ function checkRules(groups, byId, s, mode, accepted) {
   const worst = live.length
     ? Math.max(...live.map((g) => g.coaches.length ? g.children.length / g.coaches.length : Infinity)) : 0;
   out.push({
+    kind: "hard",
     rule: "Every squad meets the 1:" + s.ratio + " ratio",
     ok: over.length === 0,
     detail: over.length
       ? over.map((g) => g.name + " is " + g.children.length + " to " + g.coaches.length).join(", ")
-      : "worst squad is " + worst.toFixed(1) + " children per coach"
+      : "worst squad is " + worst.toFixed(1) + " children per coach",
+    fix: over.length ? "Another coach in " + names(over) + ", or a wider ratio." : ""
   });
+
+  /* Rule 4 only exists while the setting is on. With it off a coach is not tied to a
+     child at all, so a check reporting them "away from" their own child would be
+     reporting a rule the team has turned off. */
+  if (s.coachWithOwnChild !== false) {
+    const split = [];
+    groups.forEach((g) => g.coaches.forEach((c) => {
+      c.childIds.forEach((id) => {
+        const child = byId.get(id);
+        const here = g.children.some((k) => k.id === id);
+        const elsewhere = groups.some((o) => o !== g && o.children.some((k) => k.id === id));
+        if (!here && elsewhere) split.push(c.name + " away from " + child.firstName);
+      });
+    }));
+    out.push({
+      kind: "hard",
+      rule: "A coach is in the same squad as their own children",
+      ok: split.length === 0,
+      detail: split.length ? split.join("; ") : "every coaching parent is with their own children",
+      fix: split.length
+        ? "Move them back together, or turn off coach with their own child for this event."
+        : ""
+    });
+  }
 
   const under = live.filter((g) => g.children.length < s.minGroupSize);
   out.push({
+    kind: "aim",
     rule: "No squad below the minimum of " + s.minGroupSize,
-    ok: under.length === 0, soft: true,
+    ok: under.length === 0,
     detail: under.length
       ? under.map((g) => g.name + " has " + g.children.length).join(", ")
-      : "smallest squad is " + Math.min(...live.map((g) => g.children.length))
+      : "smallest squad is " + (live.length ? Math.min(...live.map((g) => g.children.length)) : 0),
+    fix: under.length ? "Fewer squads would let the others carry the extra." : ""
   });
 
   if (mode === "school") {
@@ -350,11 +409,15 @@ function checkRules(groups, byId, s, mode, accepted) {
       }
     }));
     out.push({
+      kind: "aim",
       rule: "No child is the only one from their school in their squad",
-      ok: alone.length === 0, soft: true,
+      ok: alone.length === 0,
       detail: alone.length ? alone.length + " alone: " + alone.slice(0, 4).join(", ")
         + (alone.length > 4 ? " and " + (alone.length - 4) + " more" : "")
-        : "every child has at least one school-mate"
+        : "every child has at least one school-mate",
+      fix: alone.length
+        ? "Nobody else from their school accepted tonight, so there is no pair to make."
+        : ""
     });
   }
   return out;

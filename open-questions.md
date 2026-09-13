@@ -529,6 +529,30 @@ Two reasons, and the first is the one that bites. Arrowing through a native sele
 The ANSWERED column goes with it, and the provenance moves onto the status itself, where an admin-set answer is marked as such. Item 56's reasoning was about a household being able to tell one parent's answer from another's — it was never about an admin, who is not one of two people who might have answered for a child. What an admin needs from that line is whether this answer came from the family or from the admin side, and that is one mark on the status rather than a column.
 
 
+**92. The two colour rules had not been applied to any admin screen.** They were written down at items 69 and 85, applied to the parent's view, and the admin side had never been read against them. Reading it against them found less amber than expected and more of the brand colours: the ability badges ran the club purple into the club gold across their five steps, exactly, and the ability spread bar used the same five tokens; the ADMIN ONLY chip and the Registered tag took the brand purple as a background; the chosen row of the squad-count table was set in brand purple; the standing advisory bars carried a gold rule down their left edge, and the deadline chips were picking up that same gold rule by a class-name collision with those bars, which is what made them read as amber. The one genuine amber was the unanswered status on the admin's own response list — which is the case item 85 had already ruled on by name, and which nobody had gone back for.
+
+**Three things named for this round turned out to be clean already**, and are recorded so nobody goes looking again: the coach stand-down advisory, the singleton advisory and the no-school advisory are all neutral-on-neutral, and so are the singleton chip and the no-school chip on a squad card. Item 85's pass had taken amber off the generic admin advisories and left it off.
+
+**Decided.** Both rules apply everywhere, admin screens included, with no exceptions for a screen only a volunteer sees.
+
+**Ability ratings become a single neutral badge**, the number carrying the value. Five colours were doing work the digit already does, and doing it in the two colours the rules reserve. **The ability spread bar becomes a neutral ramp**, hairline-separated so the blocks tell themselves apart, because five greys inside six pixels of height do not. The bar was always reinforcement of the counts printed under it, and it still is.
+
+**The admin's unanswered status is neutral with weight.** Amber means owed *by the reader*, and an admin reading a list of ninety children owes none of those answers. The parent's copy of the same status is untouched, and is still the filled amber chip item 85 specified. The two now differ by audience, which is the point of the rule.
+
+Gold came off the advisory bars along with it. Gold is a brand colour on the most visible element of an event row; a gold rule down the side of a paragraph of admin prose is not a date tile. The deadline chip has a class of its own now rather than sharing one with those bars.
+
+**The residual is recorded rather than resolved.** A broken allocation rule has to be unmissable, and it cannot be amber: amber means the reader owes an answer, and a rule the allocator could not meet is not a debt of the admin's — it is a fact about the night. Red already means declined. So the broken-rule marker is **red with weight**, and red now carries two meanings on the admin side: "this person said no" and "this rule is broken". They never appear in the same block, which is what makes it tolerable, and the weight and the cross do the separating. If a third thing ever needs red, this is the item to reopen.
+
+
+**93. The Squads settings row was missing two settings and showed the wrong defaults for two more.** It carried mode, squad count, target size, minimum size, coach ratio, minimum coaches and maximum squads. Maximum squad size was absent, and so was coach with their own child. Target size read 10 and minimum size 8, against the 8 and 5 in `allocation-rules.md`.
+
+**Decided.** All seven settings appear, at the defaults that file gives: maximum squads 10, maximum squad size 12, target 8, minimum 5, minimum coaches 1, the ratio, and coach with their own child on. The ratio stays the one number that differs by age group — 1:8 at Under 9 and 1:10 at Under 11 — because that is the difference the file justifies; the three sizes are the same working defaults for every team.
+
+**The missing coach setting is the significant one.** Hard rule 4 is written conditionally on it and the whole stand-down arithmetic hangs off it, so a screen without it presented a team setting as a fixed rule — and presented the admin with squads they had no way to explain. It is an on/off control now, and turning it off does what item 46 says: rule 4 comes out of the rules panel entirely rather than sitting there as a rule nobody can break, nobody stands down, and every acceptance counts toward the ratio.
+
+The maximum squad size matters for a different reason, recorded at item 15: the ratio alone never stops the allocation putting everybody in one squad, because seventy-five children and twelve coaches satisfies 1:8 in a single squad of seventy-five. Without the field the cap existed in the spec and nowhere an admin could see or move it.
+
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:
