@@ -92,6 +92,11 @@ Whether a coach is tied to their own child's squad is a team setting. With it on
 
 Each team carries the numbers the allocation runs on: maximum squads, maximum, target and minimum squad size, minimum coaches per squad, the coach-to-child ratio, and whether a coach is always placed with their own child. Defaults and meanings are in `allocation-rules.md`.
 
+The three squad sizes default to a maximum of 12, a target of 8 and a minimum of 5. All three
+are working defaults rather than club decisions, and they are settings precisely so that the
+club can move them once they have used the app for a few weeks — which is better evidence than
+an opinion formed in a meeting about a season nobody has played yet.
+
 An admin sets them per team, because turnout and age change what works. An admin can also override them on a single event, which applies to that event only and leaves the team's settings alone.
 
 A team also carries a default event duration of 1 hour 15, a response deadline of 24 hours before the start, and the advance reminder: a switch, and how many hours before the deadline it goes out. The duration and the deadline are overridable on a single event in the same way.
@@ -114,15 +119,31 @@ Removing a member is a soft removal. Past events keep their record intact, and t
 
 ## Events
 
-Event types are game, training and other. Other covers social outings.
+Event types are game, training, blitz and social. Social covers the club's own social events —
+a Halloween party, a Santa visit — and behaves like any other event for invitations,
+availability, the response deadline and the reminder. Coaches are invited as coaches and answer
+separately from their child, exactly as for training.
+
+What a social does not have is an allocation. No squads are worked out for it, so there is no
+squad list, no coach list and no count of who is coming, and the card never says squads are
+still to come — there is nothing coming. See `allocation-rules.md`.
 
 Required fields: type, date and time, venue.
 
 Optional fields: meet time, opposition.
 
-Venue is a controlled list of the club's usual pitches, maintained by a Club Admin. There is no separate location field.
+Venue is a controlled list of the places the club uses, maintained by a Club Admin. There is no
+separate location field. It is not a list of pitches: the clubhouse function room is a venue on
+the same list as Glenalbyn Pitch 1, and so is anywhere else on the grounds an event happens. A
+social event needs a venue exactly as a match does, and needs to say how to get into it for the
+same reasons.
 
 A venue carries an **eircode** and a short free-text **note for parking and access**, both entered by the Club Admin alongside the venue itself, and a map link. A parent sees all four on the expanded event: the venue name, the eircode, the map link and the note.
+
+A venue either has an eircode recorded or it does not. Where it does not, the line is simply
+absent and the name, the map link and the note stand on their own. There is no parent-facing
+"to be confirmed" state on venue data, for the reason already recorded for schools: a status a
+parent cannot act on, hurry or fix does not belong in front of them.
 
 This earns its place on away fixtures. A parent driving to a ground they have never been to needs the eircode for the satnav and the note for everything the satnav cannot tell them — which gate to use, where parking actually is, whether the pitch is the one behind the clubhouse. Entering it once against the venue means it is right for every fixture played there, rather than retyped into each event.
 
@@ -226,6 +247,15 @@ There is one export: an admin export of a session's squads, for printing or shar
 
 A parent sees the season calendar: every event of the season in date order, grouped by month, with the next upcoming one open by default. Drafts remain invisible to them.
 
+Event cards open and close independently. Opening one never closes another, and tapping a row
+never moves that row: the detail opens downward beneath it and everything above stays where it
+was. This replaced an accordion, which closed whichever card was open — and when that card was
+above the one being tapped, the page above shrank and the tapped row walked out from under the
+thumb. Scroll correction fixes that everywhere except at the top of the list, where there is no
+scroll above left to give back, so the accordion had to go rather than the symptom. One card
+still opens by default: the next upcoming event, whatever its type, because it is the one being
+asked about.
+
 The list opens at the next upcoming event. Everything earlier collapses behind a single row that reads as the control it is — "Show 6 earlier events", with a chevron that turns as it opens — and expands in place. That is a collapse, not a filter: nothing is removed from the list, and a cancelled event stays inline wherever it falls, with its reason. There are no status filters — upcoming, past and cancelled are the only states a parent can see, and the calendar already separates them.
 
 Where the signed-in adult has more than one child, a row of chips above the list filters it by child: All, then one chip per child. It filters the list and nothing else. With one child there are no chips, and the subtitle under "Your family" carries the child's name instead.
@@ -249,6 +279,14 @@ Labelled statuses read "Orla" and "You". They sit stacked in a fixed column at t
 A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count.
 
 A coach sees the phone numbers of the other coaches on that squad, as tap-to-call. A parent who does not coach sees names only. A coach's number is not a parent-facing detail, and coaches sorting a session between them on the night is exactly the case this serves.
+
+Any copy about who can see a phone number has to hold for a coach as well as a parent. The
+helper text under the field promised that only a team admin could see it, which was true of a
+parent and untrue of every coach in the club — their number is shown to the other coaches on
+their squad by the paragraph above. It now says both: a team admin can see it, and if you
+coach, so can the other coaches on your squad. The general form of the mistake is worth
+avoiding everywhere: this app has adults who are parents, adults who coach, and adults who are
+both, and a sentence that is only true of the first is a promise broken for the rest.
 
 Both lists are in plain alphabetical order by first name, with nobody pulled to the top. A squad list is read to find a name in it, and a list that is alphabetical everywhere except the first entry is slower to scan, not faster. The reader's own child, and a coach's own name, are set in bold where they fall, with a hidden label so a screen reader still says which name is theirs.
 
@@ -296,11 +334,31 @@ The controls stay inside the expanded card. The collapsed row is itself the cont
 
 ### Changing an answer
 
-Change answer opens the choice. It shows both options with the current answer already selected, alongside a way out that keeps the answer as it stands, and **writes nothing until the parent picks one**. A parent who taps it and walks away has changed nothing, and their child is still down as they were. It is not a dropdown, and it never clears the answer as a step on the way to replacing it.
+Change answer opens the choice. It shows both options with the current answer already selected,
+and **writes nothing until the parent picks one**. A parent who taps it and walks away has
+changed nothing, and their child is still down as they were. It is not a dropdown, and it never
+clears the answer as a step on the way to replacing it.
+
+There are two controls and no third. Tapping the option that is already selected is how a
+parent backs out: the chooser closes and nothing is written — the answer stands, and **the
+answered-on date is not restamped**, because that line has to keep saying when the answer was
+actually given. A separate "keep what you have" link said the same thing as the selected button
+beside it, and a chooser with two ways to do nothing is harder to read than one.
 
 A parent is shown the school they gave, plainly, as that child's school — whether or not it is yet on the club's list. What a Club Admin is confirming is whether the school joins the dropdown, which is a decision about a list. It is not something the parent can act on, and telling them their answer is provisional invites them to do something about it when there is nothing to do. The queue and the allocation behaviour are unchanged: an unconfirmed school still waits for a Club Admin, and the child is still counted a singleton until it is confirmed.
 
-A school can also be set back to not recorded, because a parent who picked the wrong one needs a way back.
+A school can also be set back to not recorded, because a parent who picked the wrong one needs a
+way back.
+
+The dropdown offers the club's schools and "Other…", and nothing else. It carried a "Not sure
+yet" option, which did exactly what leaving the field alone did — both make the child a
+singleton for the session and both leave them on the admin's chasing list — so it was not a
+second option, it was the same option twice. Where no school is recorded the control shows an
+unselectable placeholder rather than pre-selecting a real school on the parent's behalf.
+
+Required fields are not marked with an asterisk. The one optional field says that it is
+optional, which is the clearer way round: it marks the exception rather than the rule, and a
+form of starred labels teaches a parent nothing they could not read off the one unstarred one.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
 
@@ -324,11 +382,40 @@ Saving confirms the same way answering does, with the same brief confirmation. A
 
 The header carries the club, the age group where an admin has one to switch, and the signed-in person's name. It does not carry their role. A role line cannot describe an adult who coaches two age groups without either lying or growing, and the event rows already say who is coaching what, per event. Anything needed to tell test accounts apart belongs on the sign-in screen.
 
-The name is a control. Behind it sits a menu holding, in this order: the light and dark switch, Your children, Your details, and sign out last. There is no hamburger — there is nothing to navigate to, and on a phone shared between two parents the name is worth keeping in sight, because it says whose answers these are.
+The name is a control. Behind it sits a menu holding **Sign out, and nothing else**. On a phone
+shared between two parents the name is worth keeping in sight, because it says whose answers
+these are.
 
-On a narrow screen the two personal cards open from that menu rather than sitting under the calendar, so nobody scrolls past a season of events to change a school. On a wide screen they stay in the sidebar where they are.
+The parent's view carries two tabs of its own: **Calendar** and **Your family**. Calendar is
+where a parent lands, and holds the outstanding-answers banner, the child filter chips, the
+earlier-events collapse and the list. Your family holds the two personal cards, Your children
+and Your details, stacked. The tabs are the same at every width, and the right sidebar those
+cards used to sit in is gone — on a wide screen they take the width the calendar list takes.
+
+This supersedes the earlier note that there is no hamburger because there is nothing to
+navigate to. There now is: two places, named, in the page rather than behind the name. What the
+menu held was navigation wearing a menu's clothes, reachable only by opening something that
+looked like an account control. The tab strip is the heading as well, so there is no page title
+repeating what the selected tab already says.
+
+The tabs are a tablist: arrow keys move between them and take the selection with them, Home and
+End jump to the ends, and Tab leaves the strip for the panel rather than stepping through every
+tab on the way.
 
 The menu follows the same focus rules as a dialog: focus moves into it when it opens and back to the name when it closes, Tab stays inside it, and Escape closes it.
+
+### Light and dark
+
+The app follows the phone. There is no in-app light and dark choice in the first release:
+a parent has already made that decision once, at the level where it applies to everything, and
+an app that asks again is asking them to maintain the same preference in two places. Both themes
+are built and both meet the contrast floor below; which one appears is the operating system's
+call.
+
+The switch currently sitting in the prototype's header is a testing aid, so a session can be
+run through both themes without leaving the app, and comes out afterwards. If it turns out that
+parents do want the opposite of their phone setting, it is one row in the Your family tab, not
+a control in the header of every screen.
 
 ## Branding and accessibility
 
@@ -336,9 +423,35 @@ The club's crest and colours live in one place and are used from there, so chang
 
 All text meets WCAG AA contrast, 4.5:1 for body text and 3:1 for large text and interface controls, in both light and dark mode. That is a floor rather than an aspiration: a colour that cannot carry text at that contrast is used as a fill and not as text.
 
-The club's purple means one thing: you can interact with this. Links, buttons, the selected state of a control, a focus ring. Nothing that is merely important, merely current, or merely worth reading is given it. Emphasis that is not interactive gets weight, or a neutral colour, or a background — never the interactive colour.
+The built targets are higher than that floor: **7:1 for body text** and **4.5:1 for large text
+and interface controls**. The aim is the most readable rather than the highest measurable —
+maximum contrast is white on black, which at paragraph length halates and is worst for readers
+with astigmatism. The dark theme therefore has no pure black background and no pure white text.
 
-The rule earns its keep on the screens with a lot going on. A parent scanning an event card should be able to tell what is tappable without tapping to find out, and a colour that sometimes means "act on this" and sometimes means "read this" tells them nothing.
+There are **two colour rules**, and nothing outside them may borrow either.
+
+**The club's purple means you can interact with this.** Links, buttons, the selected state of a
+control, a focus ring. Nothing that is merely important, merely current, or merely worth reading
+is given it.
+
+**Amber means something is owed by you.** It appears in three places: the outstanding-answers
+banner, the unanswered status on an event row, and the block that says a child is not in a
+squad. Nowhere else. Emphasis that is neither interactive nor owed gets weight, or a neutral
+colour, or a background.
+
+Both rules earn their keep on the screens with a lot going on. A parent scanning an event card
+should be able to tell what is tappable without tapping to find out, and what still wants an
+answer without reading every row — and a colour that sometimes means "act on this" and
+sometimes means "read this" tells them neither.
+
+The emphasis colour was re-pitched off the club gold. Amber and gold began as the same hue, and
+on an unanswered match row the gold date tile and the amber status sat at opposite ends of one
+line meaning unrelated things — measurably the same colour in dark mode. Gold kept the hue and
+amber moved, because gold is a brand colour on the most visible element of the row and amber
+has no claim on any particular hue; only on being unmistakable. Amber now sits midway between
+the club gold and the red that means declined, which is the furthest it can be from both, and
+the unanswered status is a filled chip rather than coloured text so that the emphasis does not
+rest on hue alone — a solid block reads as different from plain text whatever the colours do.
 
 Type is sized in rem or em, never in px, so that a browser or operating system font-size setting scales the page. Zoom is not a substitute. A parent who has set a larger default font — often the reason they set it is that they need it — gets nothing from a layout whose type is nailed to pixels, because a text-size setting only moves text sized in relative units. Spacing that has to hold text may be relative too; borders and hairlines can stay in px.
 

@@ -34,7 +34,7 @@ These are set per team by an admin, and can be overridden on a single event. An 
 | Maximum squads | 10 | Never exceeded. |
 | Maximum squad size | 12 | A hard cap. Never exceeded, whatever else is under pressure. |
 | Target squad size | 8 | What the allocation aims for. |
-| Minimum squad size | *TBC* | Below this, use fewer squads. |
+| Minimum squad size | 5 | Below this, use fewer squads. |
 | Minimum coaches per squad | 1 | Never broken. |
 | Coach-to-child ratio | 1:8 | A ceiling on children per coach, checked within each squad. |
 | Coach with their own child | On | On, a coach only ever goes in their own child's squad. Off, coaches are spread wherever they are needed. |
@@ -45,11 +45,34 @@ The ratio is checked squad by squad, not across the session. Twenty children in 
 
 The maximum squad size is a cap, not an aim. It is here because the ratio on its own does not stop the allocation putting everybody together: seventy-five children and twelve coaches satisfies a 1:8 ratio in a single squad of seventy-five, which is not a session. The cap is what makes that impossible.
 
-The 12 and the 8 are working defaults rather than club decisions, and want confirming alongside the minimum.
+The minimum squad size is 5. Below that a session stops being a session: a squad of three or
+four does not hold a drill, and the children in it get a thinner evening than the ones beside
+them. Where the numbers would produce a squad that small, the allocation makes fewer squads
+instead and lets the others carry the extra.
+
+All three sizes — the maximum of 12, the target of 8 and the minimum of 5 — are working
+defaults rather than club decisions. They are deliberately not left blank waiting for an
+answer: the allocation cannot run without them, and a number that can be changed in a settings
+screen is a cheaper thing to get wrong than a spec that stalls. The club moves them once they
+have run a few weeks of sessions on the app, which is better evidence than an opinion formed
+in a meeting about a season nobody has played yet. They are team settings with a per-event
+override, so moving them is a change to a field and not to this document.
 
 ## Matches and blitzes
 
 The allocation applies to matches and blitzes as well as training. At a match a squad plays together rather than rotating around stations, and a go-games side has a fixed size, set through the per-event settings override. All the same rules apply.
+
+## Social events
+
+No allocation runs on a social event. Everybody who says yes is coming to the same thing, so
+there is nothing to divide them into, and none of the rules in this file apply: no squads, no
+coach ratio, no sizes. Availability is still collected exactly as it is for training, and
+coaches are still invited and still answer separately from their child — the event has people
+to count, it just has no arrangement to work out.
+
+Nothing about this is a failure state. The squads view says why there is nothing to allocate
+rather than showing an empty allocation, and offers no publish action, because there is nothing
+to publish.
 
 ## Deriving the number of squads
 
@@ -205,6 +228,6 @@ A parent sees their own child's school, because they entered it, but never anoth
 
 ## Open questions
 
-- Minimum squad size, and confirmation of the maximum of 12 and the target of 8. Those two are working defaults rather than club decisions, so all three want settling together.
+- The adult-to-child number for a social event. The coach ratio does not apply, because nobody is coaching, but a club day out still needs enough adults. Whether that is a ratio, a flat number or a judgement left to the organiser has not been decided.
 - Whether a coach with children in two age groups can be allocated when those two sessions run at the same time. Probably an availability problem rather than an allocation one, but it hasn't been decided.
 - What a pitch layout diagram has to show: where the stations are, the route squads take between them, whether it is drawn per event or per venue. Parents receive one alongside their squad, and none of it is specified.

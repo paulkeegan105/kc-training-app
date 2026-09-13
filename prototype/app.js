@@ -190,8 +190,9 @@ function renderThemeToggle() {
 }
 
 function renderWhoami() {
-  /* The name is the control. No hamburger: there is nothing to navigate to, and on a
-     phone shared between two parents the name is worth keeping in sight. */
+  /* The name is the control, and behind it is sign-out and nothing else — the places it
+     used to hold are tabs now. On a phone shared between two parents the name is worth
+     keeping in sight, because it says whose answers these are. */
   el("whoami").innerHTML = "<b>" + esc(signedIn().name) + "</b>"
     + `<svg class="caret" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1.75 L6 6.25 L11 1.75"
        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -299,7 +300,7 @@ function renderCalendar() {
         const invited = counts[0] + counts[1] + counts[2];
         tags.push(`<span class="pill accepted">${counts[0]} of ${invited} accepted</span>`);
         const ds = deadlineState(e);
-        tags.push(`<span class="tag ${ds.closed ? "unreg" : "coach"}">${ds.chip}</span>`);
+        tags.push(`<span class="tag ${ds.closed ? "unreg" : "notice"}">${ds.chip}</span>`);
       }
 
       return `<div class="evrow ${open ? "is-open" : ""} ${e.draft ? "is-draft" : ""} ${e.cancelled ? "is-cancelled" : ""} ${e.past ? "is-past" : ""}">
@@ -313,7 +314,7 @@ function renderCalendar() {
         </button>
         ${open ? `<div class="evbody">
           ${e.cancelled ? `<div class="alert stop" style="margin-top:14px"><b>Cancelled.</b> ${esc(e.cancelled)} Everyone invited was notified.</div>` : ""}
-          ${e.draft ? `<div class="alert warn" style="margin-top:14px"><b>This is a draft.</b>
+          ${e.draft ? `<div class="alert notice" style="margin-top:14px"><b>This is a draft.</b>
             No member can see it, it can still be edited freely and it can be deleted outright.
             Publishing is what sends the invitations, to every child and every flagged coach.</div>` : ""}
           <div class="meta">
@@ -625,7 +626,7 @@ function editModal() {
   return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit member">
     <h3>Edit ${esc(p.name)}</h3>
     <div class="msub">Adult${p.roleIn[t.id] ? " &middot; " + esc(ROLE_LABEL[p.roleIn[t.id]]) : ""} in ${t.name}</div>
-    ${p.registered ? `<div class="alert warn" style="margin-bottom:14px">This member has signed up, so under the
+    ${p.registered ? `<div class="alert notice" style="margin-bottom:14px">This member has signed up, so under the
       current spec they manage their own details and an admin cannot edit them. Editing is left open here so the
       prototype stays testable.</div>` : ""}
     <div class="row2">
@@ -723,7 +724,7 @@ function renderInvite() {
   if (!e.published) {
     wrap.innerHTML = `<div class="page-head"><div><h2>The parent's invitation</h2>
       <div class="count">${eventTitle(e)} &middot; ${e.longDate}</div></div></div>
-      <div class="alert warn"><b>Nothing has been sent yet.</b> This event is still a draft, so no member can
+      <div class="alert notice"><b>Nothing has been sent yet.</b> This event is still a draft, so no member can
       see it. Publish it on the calendar and the invitation below goes out.</div>`;
     return;
   }
@@ -864,7 +865,7 @@ function renderGroups() {
         e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button>`}</div>`;
 
   if (!e.published) {
-    el("view-groups").innerHTML = head + `<div class="alert warn"><b>This event is a draft.</b>
+    el("view-groups").innerHTML = head + `<div class="alert notice"><b>This event is a draft.</b>
       Nobody has been invited, so there are no responses to allocate. Publish it on the calendar first.</div>`;
     return;
   }
@@ -916,11 +917,11 @@ function renderGroups() {
       ${state.lastMove.pairNote ? " " + esc(state.lastMove.pairNote) : ""}
       <button class="link" id="undo-note">dismiss</button></div>` : "";
 
-  const stand = r.standDown && r.standDown.length ? `<div class="alert warn">
+  const stand = r.standDown && r.standDown.length ? `<div class="alert notice">
       ${plural(r.standDown.length, "coach", "coaches")} accepted but their own children aren't attending,
       so they aren't coaching tonight: ${esc(r.standDown.map((c) => c.name).join(", "))}.</div>` : "";
 
-  const notes = (r.notes || []).map((n) => `<div class="alert warn">${esc(n)}</div>`).join("");
+  const notes = (r.notes || []).map((n) => `<div class="alert notice">${esc(n)}</div>`).join("");
 
   const cands = r.candidates.map((c) => `
     <tr class="${c.groups === r.chosen.groups ? "chosen" : ""}">
@@ -997,7 +998,7 @@ function renderGroups() {
       <b>Move&hellip;</b> box beside any name. A manual move is pinned and survives a re-run, and moving one of
       a coach and child pair moves the other with it.</div>
     ${ratingLegend("margin:0 0 12px")}
-    ${state.mode === "school" && noSchool ? `<div class="alert warn">
+    ${state.mode === "school" && noSchool ? `<div class="alert notice">
       ${plural(noSchool, "child", "children")} attending ${noSchool === 1 ? "has" : "have"} no school recorded,
       so school affinity treats ${noSchool === 1 ? "them" : "them"} as singletons.
       <button class="link" id="show-noschool">show them in the member list</button></div>` : ""}
@@ -1522,7 +1523,7 @@ function renderFamily() {
     : "";
 
   const banner = outstanding
-    ? `<button class="alert warn alert-action" id="goto-owed">
+    ? `<button class="alert owed alert-action" id="goto-owed">
         <span class="alert-words">${outstanding === 1
           ? `<b>1 answer still to give, for ${esc(owedWho)}, ${owedWhen}.</b>`
           : `<b>${outstanding} answers still to give.</b> The first is ${esc(owedWho)}, ${owedWhen}.`}</span>
@@ -1619,9 +1620,9 @@ function familyEditModal() {
       <div class="msub">${esc(t.name)}</div>
       <div class="field${bad("school")}"><label for="f-school">School</label>
         <select id="f-school"${aria("school")}>
+          ${current === "__none" ? '<option value="__none" selected disabled>Choose a school</option>' : ""}
           ${t.schools.map((sc) => `<option value="${esc(sc)}" ${sc === current ? "selected" : ""}>${esc(sc)}</option>`).join("")}
           <option value="__other" ${isOther ? "selected" : ""}>Other&hellip;</option>
-          <option value="__none" ${current === "__none" ? "selected" : ""}>Not sure yet</option>
         </select>
         <input id="f-school-other" placeholder="School name" value="${esc(otherText)}" ${isOther ? "" : "hidden"}>
         ${errFor("school")}
@@ -1634,7 +1635,6 @@ function familyEditModal() {
   const v = (k, fallback) => esc(d[k] !== undefined ? d[k] : fallback);
   return `<div class="modal-backdrop" id="edit-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
     <h3 id="dlg-title">Your details</h3>
-    <div class="msub">These are yours to change.</div>
     <div class="row2">
       <div class="field${bad("name")}"><label for="f-first">First name</label>
         <input id="f-first" value="${v("firstName", p.firstName)}"${aria("name")}></div>
@@ -1645,10 +1645,11 @@ function familyEditModal() {
     <div class="field${bad("email")}"><label for="f-email">Email address</label>
       <input id="f-email" type="email" value="${v("email", p.email)}"${aria("email")}>
       ${errFor("email")}
-      <div class="hint">Where invitations and reminders go.</div></div>
+      <div class="hint">Where invitations and reminders are sent.</div></div>
     <div class="field"><label for="f-phone">Phone number</label>
       <input id="f-phone" value="${v("phone", p.phone || "")}">
-      <div class="hint">Optional. Only a team admin can see it, and only to ring you.</div></div>
+      <div class="hint">Optional. A team admin can see it, and if you coach, so can the
+        other coaches on your squad.</div></div>
     ${actions}</div></div>`;
 }
 

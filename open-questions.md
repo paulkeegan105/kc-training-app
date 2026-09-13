@@ -48,6 +48,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 
 **Decided.** Venue and location become one field. Venue is a controlled list of the club's usual pitches, maintained by a Club Admin, with an optional map link that covers away games. There is no separate location field.
 
+**Updated (item 80).** "Pitches" was too narrow and has been reworded: the list is of the places the club uses, which includes the clubhouse function room and anywhere else on the grounds an event happens. One field, one list, unchanged in substance.
+
 **10. A max coaches per group is referenced but never defined.** Two coaching parents of one child both go to that child's group "if it stays within the coach limits" — the Inputs list only a *minimum*. Is there a maximum, and is it a hard rule?
 
 **No longer applicable.** The conditional it hangs on is gone — allocation-rules.md now says simply that where a child has two parents coaching, both go to that child's group, so nothing references an undefined coach maximum any more.
@@ -79,6 +81,8 @@ Review of `app-spec.md` and `allocation-rules.md`. Split into: contradictions (t
 **12. Min/max players per group and min coaches per group are all TBC** — the entire group-count derivation depends on them. Are they set per team, per event, or per event type, and who sets them?
 
 **Answered (allocation-rules.md, "Settings"; app-spec.md, "Team settings"), apart from two numbers.** They are team settings, set per team by an admin because turnout and age change what works, and overridable on a single event — an override applies to that event only and never changes the team's settings. Defaults are now: maximum groups 10, minimum coaches per group 1, coach-to-child ratio 1:8, with the older age groups running 1:10. Max players per group no longer exists; the ratio and the target size replace it. Target group size and minimum group size are still TBC and are now the only two numbers outstanding — the specs record that they need the club.
+
+**Closed (item 83).** No numbers outstanding. Minimum squad size is 5, the target is 8 and the maximum is 12 — all three working defaults the club moves once they have used the app, rather than answers waited on before it can be built.
 
 **Updated.** Target squad size now defaults to 8, and the new maximum squad size defaults to 12. Both are working defaults rather than club decisions. Minimum squad size is still outstanding, so all three want settling together rather than one at a time.
 
@@ -389,6 +393,115 @@ The reason this needs asking rather than assuming: it puts a volunteer's persona
 
 Not built.
 
+**78. The profile menu was carrying navigation.** Behind the signed-in name sat the light and dark switch, Your children, Your details and sign out. Two of those are places, not account actions, and on a wide screen the same two cards also sat in a right sidebar — so they existed twice, reachable by opening something that looked like an account control.
+
+**Decided.** The parent's view has two tabs, **Calendar** and **Your family**. Calendar holds the outstanding-answers banner, the child filter chips, the earlier-events collapse and the event list. Your family holds the two personal cards, stacked. The right sidebar is gone at every width, and on a wide screen the cards take the width the calendar list takes. The profile menu holds **Sign out and nothing else**.
+
+This supersedes the line in `app-spec.md` that there is no hamburger because there is nothing to navigate to. There now is: two places, named, in the page. What the menu held was navigation wearing a menu's clothes, and hiding a destination behind an account control is the reason a parent never found it.
+
+The tab strip is the heading as well. A page title reading "Your family" above a tab reading "Your family" says it twice, so the title went.
+
+Keyboard: it is a real tablist. Arrow keys move between the tabs and take the selection with them, Home and End jump to the ends, and Tab leaves the strip for the panel rather than stepping through every tab on the way.
+
+
+**79. The response chooser had three controls.** Yes, Can't make it, and a third link — "Keep Can't make it" — that existed to let a parent back out without changing anything.
+
+**Decided.** Two buttons, with the current answer shown as selected. Tapping the selected one is how a parent backs out: the chooser closes, nothing is written, and the answered-on date is **not** restamped — that line has to keep saying when the answer was actually given, not when somebody last looked at it.
+
+This supersedes "a way out that keeps the answer as it stands" in `app-spec.md`. The way out is the selected button. A third control said the same thing as the button sitting beside it already highlighted, and a chooser offering two different ways to do nothing is harder to read than one offering none.
+
+The guarantee that nothing is written until a parent picks an option is unchanged, and now extends to picking the option they already had.
+
+
+**80. Venue was specified as a list of pitches.** `app-spec.md` called it "a controlled list of the club's usual pitches". Social events happen in the clubhouse function room, which is not a pitch, and a parent who has never been needs to know which door and where to park exactly as they would for an away ground.
+
+**Decided.** Venue is a list of **the places the club uses**, not of pitches. The clubhouse function room sits on the same Club Admin list as Glenalbyn Pitch 1, with the same eircode, map link and access note, and a social event carries a venue exactly as a match does.
+
+Nothing about the venue record changes — this is a wording fix to a definition that had quietly excluded half of what the list is for. It was written when the only events under discussion were training and matches.
+
+
+**81. Expanding an event card moved it out from under the thumb.** Tapping a collapsed row scrolled the content it was on away: the previously open card collapsed at the same time, the page above the tapped row got shorter, and everything below it jumped up.
+
+**Decided.** Event cards open and close **independently**. Opening one never closes another, and tapping a row never moves that row — the detail opens downward beneath it and everything above stays put. One card still opens by default: the next upcoming event, whatever its type.
+
+The accordion was removed rather than compensated for. Scroll anchoring — noting where the tapped row sits, re-rendering, and scrolling it back — was tried first and held everywhere except at the top of the list, which is exactly where the default-open card is. Scrolled to the top there is no scroll above left to give back, so when a card above collapses the row below it *must* move; no correction can fix that while something above is allowed to shrink. Measured across both personas, every row against every other, five scroll positions: the accordion moved the tapped row by up to 705px, and by 220px in the ordinary case of tapping the row under the one that was open. Independent cards move it by zero at every position.
+
+The cost is that a parent can leave several cards open and the page gets long. That is theirs to do and undo, and it is the cheaper problem.
+
+
+**82. Social events were being handled as if they had squads.** The type existed as "other", and everything downstream assumed an allocation: the card offered a squad section, and where none had been published it told the parent squads were still to come. For a Halloween party they never are.
+
+**Decided.** **No allocation runs on a social event.** No squad, no coach list, no count of who is attending — the card shows the event details and the response block, and nothing else. It must never say squads have not been published yet, because nothing is coming.
+
+Everything else about a social is an ordinary event. Invitations, availability, the response deadline and the reminder all work as they do for training, and coaches are invited as coaches and answer separately from their child. The event has people to count; it has no arrangement to work out.
+
+The type was renamed from "other" to **social**, and the type leads the title the way the others do: "Social · Halloween party". The date tile is neutral, with **its own token** rather than the muted pair a past event uses — reusing that pair made an upcoming social read as one that had already happened. It mutes with the row once the event is past, exactly as the purple and gold tiles do.
+
+On the admin side the squads view says why there is nothing to allocate and offers no publish button, rather than showing an empty allocation.
+
+
+**83. Minimum squad size was never set.** It sat as *TBC* in `allocation-rules.md` while the allocation could not run without it, and the maximum of 12 and the target of 8 were flagged as working defaults wanting confirmation. This was the item most often named as blocking.
+
+**Decided.** Minimum squad size is **5**, alongside the target of 8 and the maximum of 12. Below five a session stops being a session: a squad of three does not hold a drill, and the children in it get a thinner evening than the ones beside them. Where the numbers would produce a squad that small the allocation makes fewer squads and lets the others carry the extra.
+
+All three are working defaults rather than club decisions, and that is the point rather than a caveat. They are team settings with a per-event override, so the club moves them once they have run a few weeks of sessions on the app — which is better evidence than an opinion formed in a meeting about a season nobody has played yet. Leaving the field blank pending an answer bought nothing: the allocation cannot run without a number, and a number in a settings screen is a far cheaper thing to get wrong than a spec that stalls.
+
+**This closes item 12.**
+
+
+**84. There was a light and dark switch in the app.** It sat in the profile menu, and was removed from it along with the other menu items at item 78, which left the question of where it goes — or whether it goes anywhere.
+
+**Decided.** **The theme follows the phone.** No in-app choice in the first release. A parent has already made that decision once, at the level where it applies to everything they use, and an app that asks again is asking them to maintain the same preference in two places and to notice when the two disagree. Both themes are built, both meet the contrast targets, and the operating system picks.
+
+The icon currently in the prototype's header is a **testing aid** — it lets a session be run through both themes without leaving the app — and comes out after user testing. It is deliberately isolated so that removing it is one deletion.
+
+If testing shows parents do want the opposite of their phone setting, it is one row in the Your family tab. It is not a control in the header of every screen, which is what it would have to be to be worth the weight.
+
+
+**85. There was only one colour rule.** Purple means you can interact with this, and it was written down. Nothing said what carries emphasis that is *not* interactive, so emphasis was being improvised — and the unanswered status, the only one of the three statuses that asks the parent for something, was the quietest of them.
+
+**Decided.** A second rule, beside the purple one in the Branding and accessibility section of `app-spec.md`.
+
+**Amber means something is owed by you.** It appears in exactly three places: the outstanding-answers banner, the unanswered status on an event row, and the block that says a child is not in a squad. Nowhere else. Nothing that is merely important, merely current or merely worth reading gets amber, exactly as nothing like that gets purple.
+
+Applying it took amber *off* five things that had been using it — a Coach role label, generic admin advisories, the allocator's soft-check mark, a pinned-person marker and the admin's own view of an unanswered response. The last is the interesting one: an admin reading a member list is not the person who owes that answer, so it is not amber to them. A rule that admits exceptions is not a rule.
+
+**The emphasis colour was re-pitched off the club gold.** Amber and gold started as the same hue, and on an unanswered match row the gold date tile and the amber status sat at opposite ends of one line meaning unrelated things. Measured in dark mode they were a hue apart and essentially identical; distinct semantic colours elsewhere in this system sit roughly five times further apart.
+
+Gold kept the hue and amber moved. Gold is a brand colour, sampled from the crest, and it is on the most visible element of the row; amber has no claim on any particular hue, only on being unmistakable. Amber now sits midway between the club gold and the red that means declined — the furthest it can be from both, since the gap between them is only about fifty degrees and moving amber clear of gold moves it toward red.
+
+Hue alone could not finish the job. At 7:1, text bright enough to read in dark mode lands in a narrow band that gold and the declined red already occupy, so wherever amber went as coloured text it collided with one of them — and confusing "you have not answered" with "you said no" is a worse failure than confusing either with a match tile. So the unanswered status is a **filled chip** rather than coloured text. The fill is the amber mass that sits beside the gold tile, and a solid block reads as different from plain text whatever the colours do. The emphasis stops depending on hue alone, which is the same reasoning already recorded at item 75 for not letting colour be the only signal.
+
+
+**86. Venue data was about to get a parent-facing pending state.** One sample venue had an eircode that was a placeholder awaiting confirmation, and it was being shown to parents as "to be confirmed" beside the code.
+
+**Decided.** Removed. A venue **either has an eircode recorded or it does not**, and where it does not the line is simply absent — the venue name, the map link and the access note stand on their own.
+
+This extends the reasoning already recorded at **item 73** for schools. A status the parent cannot act on, cannot hurry and cannot fix does not belong in front of them. An unconfirmed eircode is a job on somebody's list at the club; showing it to a parent invites them to do something about it when there is nothing to do, and casts doubt on the rest of the venue detail at the moment they are trying to find the place.
+
+The admin side is unaffected: whether a venue's details are complete is an admin's problem, and the admin's view is where it belongs.
+
+
+**87. The school dropdown had a "Not sure yet" option.** It sat alongside the club's schools and "Other…".
+
+**Decided.** Removed. It behaved identically to leaving the field alone — both make the child a singleton for the session, and both leave them on the admin's chasing list — so it was not a second option, it was the same option twice, dressed as a choice.
+
+"Other…" stays: typing a school the club has not listed is a genuinely different act from not answering, and the queue behaviour at item 20 is unchanged. A parent can still set a school back to not recorded, so the way out is intact.
+
+Where no school is recorded the control shows an unselectable placeholder rather than pre-selecting a real school on the parent's behalf, which is what removing the option would otherwise have caused.
+
+While in the same dialog: required fields are **not** marked with asterisks. The one optional field says it is optional, which marks the exception rather than the rule.
+
+
+**88. The phone number helper text was untrue for coaches.** It read "Only a team admin can see it, and only to ring you." That is true of a parent who does not coach. A coach's number is shown to the other coaches on their squad — by a decision recorded in this same spec — so for every coach in the club the field was making a promise the app breaks.
+
+**Decided.** Reworded to say both: a team admin can see it, and if you coach, so can the other coaches on your squad.
+
+Neither half of the behaviour changed; the sentence was simply wrong about half its readers. Recorded in `app-spec.md` as a general rule, because the shape of the mistake will recur: this app has adults who are parents, adults who coach, and adults who are both, and **any copy about who can see a phone number has to hold for coaches as well as parents.** A sentence that is only true of the simplest reader is a promise broken for everyone else.
+
+Also fixed alongside it: the email helper now reads "Where invitations and reminders are sent", and "These are yours to change" came off the Your details dialog — it described the dialog rather than telling anyone anything.
+
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:
@@ -445,8 +558,17 @@ These aren't underspecified so much as absent — if you don't answer them I wil
 
 ---
 
-Items **1** and **2** are answered, and **12** is down to one number: the minimum squad size, plus confirmation of the 8 and 12 that are currently working defaults rather than club decisions.
+Items **1**, **2** and **12** are answered. **12** closed at item 83: the minimum squad size is 5, alongside the target of 8 and the maximum of 12, all three as working defaults the club moves once they have used the app. The allocation can run.
 
-The three I'd want answered before anything else now are **12** (that minimum, which the allocation still can't run without), **39** (data protection — the only item here with nothing recorded against it at all) and **51** (the session plan and the pitch layout diagram, which need the club before either can be built).
+**Waiting on the club.** Six things, and none of them is a design decision to be made here:
 
-Two others are less urgent but not settled: **31** and **32** hold proposals rather than decisions, and **35** still has no column definitions for either CSV template.
+- **39**, data protection — consent, retention and subject access for children's records, including an ability rating hidden from the child's own parents. Still the only item with nothing recorded against it.
+- **51**, the session plan and the pitch layout diagram. Neither can be built without the club saying what they contain.
+- **77**, the named contact on the day. It puts a volunteer's personal number in front of every parent in the age group, which is the club's call and the team admin's.
+- **Whether a parent sees every squad** for an event or only their child's. Parked at item 38. A parent might want to know who else is on the pitch; a club might not want a full roster of children in every household.
+- **The adult-to-child number for a social event.** The coach ratio does not apply, because nobody is coaching, but a club day out still needs enough adults. Ratio, flat number, or the organiser's judgement — undecided.
+- **Silverpark's eircode**, which nobody has. The venue shows no eircode line until there is one, per item 86, so this blocks nothing — it is just a fact the club holds and the app does not.
+
+**Waiting on the trial**, not on an answer: the open half of **75** — which element leads an event row, and whether training and matches should differ from each other more strongly than a word and a tile colour. That is being settled by watching people use it, which is the right way to settle it.
+
+**Proposals rather than decisions**, and still needing sign-off: **31** (platform and stack) and **32** (authentication), and **35** still has no column definitions for either CSV template.

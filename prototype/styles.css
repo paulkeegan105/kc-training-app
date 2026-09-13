@@ -1,26 +1,38 @@
 /* Kilmacud Crokes — prototype styling.
    Brand colours sampled from the crest: purple #5C068C, gold #F0B323, green #2A8F47.
-   Every text pair below was checked against WCAG AA (4.5:1 body, 3:1 large/UI). */
+
+   TWO COLOUR RULES, and nothing else may borrow either:
+     purple  you can interact with this
+     amber   you owe an answer on this — the outstanding-answers banner, the
+             unanswered status on a row, and the not-in-a-squad block. Three
+             places. Nothing merely important, current or worth reading gets it.
+
+   Contrast targets: 7:1 body text, 4.5:1 large text and interface controls.
+   Aimed at readable rather than maximal — no pure white on pure black, which
+   halates at paragraph length and is worst for astigmatism. */
 
 :root {
   --bg: #F4F1F7; --surface: #FFFFFF; --surface-2: #F1EDF5;
-  --ink: #1C1022; --muted: #5E5368; --line: #DFD7E6;
+  --ink: #1C1022; --muted: #544A5E; --line: #DFD7E6;
 
   --brand: #5C068C; --brand-deep: #4A0570; --brand-ink: #FFFFFF;
   --brand-soft: #F0E4F8; --brand-soft-ink: #4A0570;
   --gold: #F0B323; --gold-deep: #C08A18;
 
-  --ok: #1B6B3F; --ok-bg: #E6F4EC; --ok-ink: #14532D;
+  --ok: #155934; --ok-bg: #E6F4EC; --ok-ink: #14532D;
   --stop: #A32318; --stop-bg: #FDECEA; --stop-ink: #8C2118;
-  --warn: #8A6413; --warn-bg: #FDF3E0; --warn-ink: #6E4A0C;
-  --neutral-bg: #EEEAF1; --neutral-ink: #4A4152;
+  --warn: #964D01; --warn-bg: #FFDCC2; --warn-ink: #5F2E00;
+  --neutral-bg: #EEEAF1; --neutral-ink: #4A4152; --notice-line: #8A7F96;
 
-  --r1: #3A0159; --r1-ink: #FFFFFF; --r2: #5C068C; --r2-ink: #FFFFFF;
-  --r3: #7B3BA6; --r3-ink: #FFFFFF; --r4: #C08A18; --r4-ink: #1C1022;
+  --r1: #3A0159; --r1-ink: #F6F1FA; --r2: #5C068C; --r2-ink: #F6F1FA;
+  --r3: #71309B; --r3-ink: #F6F1FA; --r4: #D1991C; --r4-ink: #1C1022;
   --r5: #F0B323; --r5-ink: #1C1022;
 
-  --header: #4A0570; --header-ink: #FFFFFF; --header-sub: #EBDCF5;
-  --tabbar: #5C068C; --tab-ink: #E2CDF0; --tab-on: #FFFFFF;
+  --header: #4A0570; --header-ink: #F6F1FA; --header-sub: #EBDCF5;
+  --tabbar: #5C068C; --tab-ink: #E2CDF0; --tab-on: #F6F1FA;
+
+  /* the social tile: a solid neutral slate, not a faded one */
+  --tile-social-bg: #C9C4D0; --tile-social-ink: #241A30;
 
   --radius: 12px;
   --shadow: 0 1px 2px rgba(28,16,34,.07), 0 4px 14px rgba(28,16,34,.06);
@@ -30,38 +42,42 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #151019; --surface: #221A2A; --surface-2: #2C2434;
-    --ink: #F2ECF6; --muted: #A99CB4; --line: #3B3145;
+    --ink: #F2ECF6; --muted: #BCB0C6; --line: #3B3145;
 
-    --brand: #C9A0E8; --brand-deep: #3A0559; --brand-ink: #1C1022;
+    --brand: #CDA7EA; --brand-deep: #3A0559; --brand-ink: #1C1022;
     --brand-soft: #33184A; --brand-soft-ink: #D9BBEF;
     --gold: #F0B323; --gold-deep: #F0B323;
 
     --ok: #5FD08D; --ok-bg: #10301E; --ok-ink: #8FE0AE;
     --stop: #FF8C7A; --stop-bg: #3A1714; --stop-ink: #FFB4A6;
-    --warn: #E6B14C; --warn-bg: #33240A; --warn-ink: #F5CE7A;
-    --neutral-bg: #2C2434; --neutral-ink: #BDB2C6;
+    --warn: #D16E02; --warn-bg: #562800; --warn-ink: #FED5B8;
+    --neutral-bg: #2C2434; --neutral-ink: #BDB2C6; --notice-line: #6E6279;
 
-    --header: #3A0559; --header-ink: #FFFFFF; --header-sub: #E4D2F2;
-    --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #FFFFFF;
+    --header: #3A0559; --header-ink: #F6F1FA; --header-sub: #E4D2F2;
+    --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #F6F1FA;
+
+    --tile-social-bg: #4E4559; --tile-social-ink: #F2ECF6;
 
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
-    --ring: 0 0 0 3px rgba(201,160,232,.4); --focus: #C9A0E8;
+    --ring: 0 0 0 3px rgba(205,167,234,.4); --focus: #CDA7EA;
   }
 }
 :root[data-theme="dark"] {
   --bg: #151019; --surface: #221A2A; --surface-2: #2C2434;
-  --ink: #F2ECF6; --muted: #A99CB4; --line: #3B3145;
-  --brand: #C9A0E8; --brand-deep: #3A0559; --brand-ink: #1C1022;
+  --ink: #F2ECF6; --muted: #BCB0C6; --line: #3B3145;
+  --brand: #CDA7EA; --brand-deep: #3A0559; --brand-ink: #1C1022;
   --brand-soft: #33184A; --brand-soft-ink: #D9BBEF;
   --gold: #F0B323; --gold-deep: #F0B323;
   --ok: #5FD08D; --ok-bg: #10301E; --ok-ink: #8FE0AE;
   --stop: #FF8C7A; --stop-bg: #3A1714; --stop-ink: #FFB4A6;
-  --warn: #E6B14C; --warn-bg: #33240A; --warn-ink: #F5CE7A;
-  --neutral-bg: #2C2434; --neutral-ink: #BDB2C6;
-  --header: #3A0559; --header-ink: #FFFFFF; --header-sub: #E4D2F2;
-  --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #FFFFFF;
+  --warn: #D16E02; --warn-bg: #562800; --warn-ink: #FED5B8;
+  --neutral-bg: #2C2434; --neutral-ink: #BDB2C6; --notice-line: #6E6279;
+  --header: #3A0559; --header-ink: #F6F1FA; --header-sub: #E4D2F2;
+  --tabbar: #4A0570; --tab-ink: #DCC6EC; --tab-on: #F6F1FA;
+
+  --tile-social-bg: #4E4559; --tile-social-ink: #F2ECF6;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
-  --ring: 0 0 0 3px rgba(201,160,232,.4); --focus: #C9A0E8;
+  --ring: 0 0 0 3px rgba(205,167,234,.4); --focus: #CDA7EA;
 }
 
 * { box-sizing: border-box; }
@@ -172,7 +188,10 @@ tbody tr:last-child td { border-bottom: 0; }
 .r5 { background: var(--r5); color: var(--r5-ink); }
 
 .tag { display: inline-block; font-size: 11.5px; font-weight: 650; padding: 3px 8px; border-radius: 5px; }
-.tag.coach { background: var(--warn-bg); color: var(--warn-ink); }
+/* a role label and an open-deadline chip: neither is owed by the reader, so
+   neither takes amber. The words tell the two deadline chips apart. */
+.tag.coach { background: var(--neutral-bg); color: var(--neutral-ink); }
+.tag.notice { color: var(--neutral-ink); box-shadow: inset 0 0 0 1px var(--notice-line); }
 .tag.reg { background: var(--brand-soft); color: var(--brand-soft-ink); }
 .tag.unreg { background: var(--neutral-bg); color: var(--neutral-ink); }
 .tag.draft { background: var(--neutral-bg); color: var(--neutral-ink); }
@@ -284,14 +303,16 @@ details.why summary { cursor: pointer; font-size: 13.5px; color: var(--brand); f
 
 .alert { border-radius: 10px; padding: 12px 15px; margin-bottom: 12px; font-size: 13.5px; line-height: 1.45; }
 .alert.stop { background: var(--stop-bg); color: var(--stop-ink); border-left: 3px solid var(--stop); }
-.alert.warn { background: var(--warn-bg); color: var(--warn-ink); border-left: 3px solid var(--warn); }
+.alert.notice { background: var(--neutral-bg); color: var(--neutral-ink); border-left: 3px solid var(--notice-line); }
+/* the one alert that is amber: an answer the reader owes */
+.alert.owed { background: var(--warn-bg); color: var(--warn-ink); border-left: 3px solid var(--warn); }
 .alert.ok { background: var(--ok-bg); color: var(--ok-ink); border-left: 3px solid var(--ok); }
 button.link { background: none; border: 0; font: inherit; font-size: 12.5px; color: inherit; text-decoration: underline; cursor: pointer; padding: 0 0 0 6px; }
 
 .checks { display: grid; gap: 8px; margin-bottom: 16px; }
 .check { display: flex; gap: 10px; align-items: baseline; background: var(--surface); border-radius: 9px; padding: 11px 14px; box-shadow: var(--shadow); font-size: 13.5px; }
 .check .mark { font-weight: 700; color: var(--ok); flex: none; }
-.check.warn .mark { color: var(--warn); } .check.fail .mark { color: var(--stop); }
+.check.warn .mark { color: var(--notice-line); } .check.fail .mark { color: var(--stop); }
 .check .d { color: var(--muted); font-size: 12.5px; }
 
 .groups-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -312,11 +333,11 @@ button.link { background: none; border: 0; font: inherit; font-size: 12.5px; col
 .person.dragging { opacity: .35; }
 .person .nm { flex: 1; }
 .person.coach .nm { font-weight: 600; }
-.person .pin { color: var(--warn-ink); font-size: 10px; vertical-align: middle; }
+.person .pin { color: var(--muted); font-size: 10px; vertical-align: middle; }
 .person .mini { font-size: 10.5px; color: var(--muted); background: var(--surface-2); padding: 2px 5px; border-radius: 4px; }
 .schools { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
 .schooltag { font-size: 10.5px; color: var(--muted); background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
-.schooltag.lone { background: var(--warn-bg); color: var(--warn-ink); font-weight: 650; }
+.schooltag.lone { background: var(--neutral-bg); color: var(--neutral-ink); font-weight: 650; }
 
 .switch { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
 .switch input { margin: 0; accent-color: var(--brand); cursor: pointer; }
@@ -450,7 +471,8 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
   border: 1px solid var(--line); background: var(--surface); color: var(--muted); max-width: 82px;
 }
 .moveto:hover, .moveto:focus { color: var(--ink); border-color: var(--brand); }
-.person .mini.none { background: var(--warn-bg); color: var(--warn-ink); font-weight: 650; }
+/* an admin reading a list is not the one who owes this answer, so it is not amber */
+.person .mini.none { background: var(--neutral-bg); color: var(--neutral-ink); font-weight: 650; }
 .groups { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 
 /* both answers carry the same weight — neither is nudged */
@@ -494,7 +516,18 @@ main { overflow-x: hidden; }
 .st-mark { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; font-size: 11px; line-height: 1; }
 .st-accepted { color: var(--ok-ink); } .st-accepted .st-mark { background: var(--ok-bg); }
 .st-declined { color: var(--stop-ink); } .st-declined .st-mark { background: var(--stop-bg); }
-.st-none { color: var(--muted); } .st-none .st-mark { background: var(--surface-2); border: 1px solid var(--line); }
+/* The one status still asking for something. Colour alone could not carry it: amber has
+   to sit clear of the club gold at hue 82 and of the stop red at hue 30, and the gap
+   between them is only about 50 degrees. Centred at 56 it is ~26 degrees from each,
+   which as bare text still left it within dE 0.10 of the declined red. So it is a filled
+   chip: the fill is the amber mass that sits beside the gold tile (dE 0.48 apart in
+   dark), and a solid block against plain text tells it from declined whatever the
+   colours do — the emphasis stops depending on hue alone. */
+.st-none {
+  color: var(--warn-ink); background: var(--warn-bg);
+  border: 1px solid var(--warn); border-radius: 999px; padding: 2px 9px 2px 5px;
+}
+.st-none .st-mark { background: transparent; border: 1.5px solid currentColor; }
 
 /* Weight says which one is still asking for something. Accepted and declined are
    settled and can sit at regular weight; no response is the only one wanting a tap,
@@ -616,9 +649,10 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
    Purple tile 11.09:1 light, 8.98:1 dark. Muted past tile 6.24:1 light, 5.75:1 dark. */
 .ev-when.is-training { background: var(--brand-soft); color: var(--brand-soft-ink); }
 .ev-when.is-match { background: var(--gold); color: #1C1022; }
-/* social takes the neutral tile: the same surface-2 on muted the past tiles already
-   use, measured at 6.24:1 light and 5.75:1 dark. No new colour is introduced. */
-.ev-when.is-social { background: var(--surface-2); color: var(--muted); }
+/* Social takes a solid neutral slate of its own, not the muted pair the past tiles
+   use — an upcoming social must not read as one that has already happened. It still
+   fades with the rest of the row once it has, exactly as purple and gold do. */
+.ev-when.is-social { background: var(--tile-social-bg); color: var(--tile-social-ink); }
 
 /* a finished match must not sit there brighter than an upcoming session */
 .fev.is-past .ev-when.is-training,
@@ -667,8 +701,8 @@ button.whoami .caret { width: .7em; height: auto; flex: none; }
 }
 .menu-item:hover { background: var(--surface-2); }
 
-/* the family panel is one column of cards, at any width */
-.ppanel .side-card { max-width: 560px; }
+/* the cards use the width of the page, the same as the list on the other tab —
+   they are a panel now, not the sidebar they started as */
 
 /* ---- TEMPORARY: theme switch in the header. Delete with renderThemeToggle. ---- */
 .themebtn { display: grid; place-items: center; flex: none; }
