@@ -120,7 +120,11 @@ Required fields: type, date and time, venue.
 
 Optional fields: meet time, opposition.
 
-Venue is a controlled list of the club's usual pitches, maintained by a Club Admin. A venue can carry an optional map link, which is how away games are covered. There is no separate location field.
+Venue is a controlled list of the club's usual pitches, maintained by a Club Admin. There is no separate location field.
+
+A venue carries an **eircode** and a short free-text **note for parking and access**, both entered by the Club Admin alongside the venue itself, and a map link. A parent sees all four on the expanded event: the venue name, the eircode, the map link and the note.
+
+This earns its place on away fixtures. A parent driving to a ground they have never been to needs the eircode for the satnav and the note for everything the satnav cannot tell them — which gate to use, where parking actually is, whether the pitch is the one behind the clubhouse. Entering it once against the venue means it is right for every fixture played there, rather than retyped into each event.
 
 An event has a duration. It defaults to the team's setting of 1 hour 15 and can be overridden on the event.
 
@@ -234,13 +238,17 @@ The two times are split across the two lines rather than run together. The colla
 
 The range carries no label. The separation does that work, which also keeps the wording from having to branch between a training session and a match. Where an event has no meet time, the start time goes on the collapsed row and the range stays in the detail. End times are kept throughout, because the calendar feed needs them.
 
-A small word beside the date says what kind of session it is: "Training" or "Match". It is text rather than colour, because a type colour would have to share a row with the cancelled and past states, and three colours on one row stop meaning anything.
+The type leads the title: training reads "Training", a match reads "Match · Home to Templeogue Synge Street", and a blitz reads "Blitz ·" and its name. That last one closes a gap — a blitz and a match were previously indistinguishable on a row.
+
+The date tile is coloured by type as well: the club purple for training, the club gold for matches and blitzes. The word in the title carries the meaning, so the colour is reinforcement and never the only signal. A past event mutes its tile along with the rest of the row, so a finished match never sits brighter than an upcoming session.
 
 The name, where it is needed, goes on the status rather than in the subline, because that is where it does work — it says whose answer this is. It appears when the row carries more than one answer, which is a coaching parent's own alongside their child's, and when the signed-in adult has more than one child, where the row would otherwise not say which of them it concerns. Where there is one child and one answer, there is no name in the subline and no label on the status: it could only be that child, and saying so twice says nothing.
 
 Labelled statuses read "Orla" and "You". They sit stacked in a fixed column at the right of the row, so they form a straight edge down the list. Those labels are what tells a coaching parent the two answers are separate; no standing explainer is needed alongside them.
 
 A parent sees their child's squad, the coaches for it, and the names of the children in it, their own child included. The squad is shown as two labelled lists, coaches then players, each label carrying its own count.
+
+A coach sees the phone numbers of the other coaches on that squad, as tap-to-call. A parent who does not coach sees names only. A coach's number is not a parent-facing detail, and coaches sorting a session between them on the night is exactly the case this serves.
 
 Both lists are in plain alphabetical order by first name, with nobody pulled to the top. A squad list is read to find a name in it, and a list that is alphabetical everywhere except the first entry is slower to scan, not faster. The reader's own child, and a coach's own name, are set in bold where they fall, with a hidden label so a screen reader still says which name is theirs.
 
@@ -278,6 +286,14 @@ Outside that window there is no count and no banner. The row statuses carry it, 
 
 There is no standing "everything answered" banner. A brief confirmation appears when an answer is given and fades on its own, rather than a reassurance sitting on the page for the whole visit. It is announced once to a screen reader rather than left in the page for one to find.
 
+### The response block
+
+An answer that already exists is a fact rather than an action, and takes one line: the person, who said it and when, and a text link to change it — "Orla · Accepted by you, Mon 7 Sep · Change". No status badge: the word in the provenance already carries it, and the collapsed row showed it on the way in.
+
+An unanswered person keeps the full treatment, with Yes and Can't make it as proper buttons, because that is the action the card exists for.
+
+The controls stay inside the expanded card. The collapsed row is itself the control that opens the card, and the chooser needs somewhere to render when it opens.
+
 ### Changing an answer
 
 Change answer opens the choice. It shows both options with the current answer already selected, alongside a way out that keeps the answer as it stands, and **writes nothing until the parent picks one**. A parent who taps it and walks away has changed nothing, and their child is still down as they were. It is not a dropdown, and it never clears the answer as a step on the way to replacing it.
@@ -287,6 +303,14 @@ A parent is shown the school they gave, plainly, as that child's school — whet
 A school can also be set back to not recorded, because a parent who picked the wrong one needs a way back.
 
 A parent sees their own child's school, because they enter it themselves. They never see another child's school, and no parent ever sees any ability rating, including their own child's. Neither is ever given as the reason for a placement.
+
+### Someone to ring on the day
+
+A parent can see the team admin's name and phone number. When a pitch changes an hour before throw-in, or a parent is lost on the way to an away ground, there has to be one named person to contact, and it cannot be a general club number that rings out on a Saturday morning.
+
+This is deliberately the team admin and not the coaches. Coaches' numbers are shown to other coaches on the squad card and are not exposed to parents.
+
+**This needs the club's agreement before it is built.** It puts a volunteer's personal number in front of every parent in the age group, which is a thing to ask for rather than assume.
 
 ### Forms and dialogs
 
@@ -298,7 +322,13 @@ Saving confirms the same way answering does, with the same brief confirmation. A
 
 ## What the header carries
 
-The header carries the club, the age group where an admin has one to switch, the signed-in person's name, and sign out. It does not carry their role. A role line cannot describe an adult who coaches two age groups without either lying or growing, and the event rows already say who is coaching what, per event. Anything needed to tell test accounts apart belongs on the sign-in screen.
+The header carries the club, the age group where an admin has one to switch, and the signed-in person's name. It does not carry their role. A role line cannot describe an adult who coaches two age groups without either lying or growing, and the event rows already say who is coaching what, per event. Anything needed to tell test accounts apart belongs on the sign-in screen.
+
+The name is a control. Behind it sits a menu holding, in this order: the light and dark switch, Your children, Your details, and sign out last. There is no hamburger — there is nothing to navigate to, and on a phone shared between two parents the name is worth keeping in sight, because it says whose answers these are.
+
+On a narrow screen the two personal cards open from that menu rather than sitting under the calendar, so nobody scrolls past a season of events to change a school. On a wide screen they stay in the sidebar where they are.
+
+The menu follows the same focus rules as a dialog: focus moves into it when it opens and back to the name when it closes, Tab stays inside it, and Escape closes it.
 
 ## Branding and accessibility
 

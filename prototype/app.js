@@ -42,6 +42,8 @@ const state = {
   familyShowEarlier: false,
   familyChild: "all",
   familyEditing: null,
+  menuOpen: false,
+  menuPanel: null,
   editDraft: null,
   editErrorField: null,
   editReturnTo: null,
@@ -167,9 +169,115 @@ function allocationFor(t, e) {
 }
 
 function renderWhoami() {
-  // just the name. A role line breaks for an adult coaching two age groups, and the
-  // event rows already say who is coaching what.
-  el("whoami").innerHTML = "<b>" + esc(signedIn().name) + "</b>";
+  /* The name is the control. No hamburger: there is nothing to navigate to, and on a
+     phone shared between two parents the name is worth keeping in sight. */
+  el("whoami").innerHTML = "<b>" + esc(signedIn().name) + "</b>"
+    + `<svg class="caret" viewBox="0 0 12 8" aria-hidden="true" focusable="false"><path d="M1 1.75 L6 6.25 L11 1.75"
+       fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+const isNarrow = () => matchMedia("(max-width: 900px)").matches;
+
+function themeIsDark() {
+  const set = document.documentElement.getAttribute("data-theme");
+  return set ? set === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function renderUserMenu() {
+  const me = signedIn();
+  const kids = me.childIds.map((id) => BY_ID.get(id)).filter(Boolean);
+  const narrow = isNarrow();
+  const open = state.menuPanel;
+
+  const childPanel = `<div class="menu-panel">
+      ${kids.map((k) => `<div class="childrow"><div class="cr-top"><div>
+        <div class="cn">${esc(k.name)}</div>
+        <div class="ct">${esc(TEAM_BY_ID.get(k.teamId).name)} &middot; ${schoolForParent(k)}</div></div>
+        <button class="linkbtn" data-fedit="${k.id}">Change school</button></div></div>`).join("")}
+    </div>`;
+
+  const detailPanel = `<div class="menu-panel">
+      <div class="kv"><span class="k">Name</span><span class="v">${esc(me.name)}</span></div>
+      <div class="kv"><span class="k">Email</span><span class="v">${esc(me.email)}</span></div>
+      <div class="kv"><span class="k">Phone</span><span class="v">${esc(me.phone || "not given")}</span></div>
+      <button class="linkbtn" style="margin-top:9px" data-fedit="${me.id}">Edit your details</button>
+    </div>`;
+
+  el("usermenu").innerHTML = `
+    <button class="menu-item" data-menu="theme">${themeIsDark() ? "Switch to light" : "Switch to dark"}</button>
+    <button class="menu-item" data-menu="children" aria-expanded="${open === "children"}">Your children</button>
+    ${narrow && open === "children" ? childPanel : ""}
+    <button class="menu-item" data-menu="details" aria-expanded="${open === "details"}">Your details</button>
+    ${narrow && open === "details" ? detailPanel : ""}
+    <div class="menu-rule"></div>
+    <button class="menu-item" data-menu="signout">Sign out</button>`;
+
+  el("usermenu").querySelectorAll("[data-menu]").forEach((b) => {
+    b.onclick = () => {
+      const what = b.dataset.menu;
+      if (what === "theme") {
+        document.documentElement.setAttribute("data-theme", themeIsDark() ? "light" : "dark");
+        renderUserMenu();
+        const again = el("usermenu").querySelector('[data-menu="theme"]');
+        if (again) again.focus();
+        return;
+      }
+      if (what === "signout") { closeUserMenu(false); signOut(); return; }
+      if (isNarrow()) {
+        state.menuPanel = state.menuPanel === what ? null : what;
+        renderUserMenu();
+        const again = el("usermenu").querySelector('[data-menu="' + what + '"]');
+        if (again) again.focus();
+      } else {
+        // on a wide screen the cards are already on the page; take them there
+        closeUserMenu();
+        const card = document.querySelectorAll("#view-family .side-card")[what === "children" ? 0 : 1];
+        if (card) {
+          card.scrollIntoView({ block: "center", behavior: "smooth" });
+          const h = card.querySelector("h3");
+          if (h) { h.setAttribute("tabindex", "-1"); h.focus(); }
+        }
+      }
+    };
+  });
+
+  if (isNarrow()) {
+    el("usermenu").querySelectorAll("[data-fedit]").forEach((b) =>
+      b.onclick = () => {
+        closeUserMenu(false);
+        showView("family");
+        openFamilyDialog(Number(b.dataset.fedit), '[data-fedit="' + b.dataset.fedit + '"]');
+      });
+  }
+}
+
+function openUserMenu() {
+  state.menuOpen = true;
+  state.menuPanel = null;
+  el("usermenu").hidden = false;
+  el("whoami").setAttribute("aria-expanded", "true");
+  renderUserMenu();
+  const first = el("usermenu").querySelector("button");
+  if (first) first.focus();
+}
+
+function closeUserMenu(restoreFocus = true) {
+  state.menuOpen = false;
+  state.menuPanel = null;
+  el("usermenu").hidden = true;
+  el("whoami").setAttribute("aria-expanded", "false");
+  if (restoreFocus) el("whoami").focus();
+}
+
+function trapMenuTab(e) {
+  const menu = el("usermenu");
+  if (!menu || menu.hidden) return;
+  const items = [el("whoami")].concat([...menu.querySelectorAll("button, a[href], input, select")])
+    .filter((n) => n && !n.disabled && n.getBoundingClientRect().width);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 function renderAll() {
@@ -184,13 +292,17 @@ function renderAll() {
 
 /* ---------------- calendar ---------------- */
 
-const TYPE_WORD = { Training: "Training", Game: "Match", Other: "Social" };
-
+/* The type leads the title, so a match and a blitz are told apart on the row itself.
+   The tile colour underneath is reinforcement, never the only signal. */
 function eventTitle(e) {
-  if (e.title) return e.title;
-  if (e.type === "Game") return (e.away ? "Away to " : "Home to ") + e.opposition;
+  if (e.type === "Game") return "Match &middot; " + esc((e.away ? "Away to " : "Home to ") + e.opposition);
+  if (e.type === "Blitz") return "Blitz &middot; " + esc(e.title || e.venue);
+  if (e.title) return esc(e.title);
   return "Training";
 }
+
+/* matches and blitzes share the club gold; training keeps the purple */
+const tileKind = (e) => (e.type === "Game" || e.type === "Blitz") ? "is-match" : "is-training";
 
 function renderCalendar() {
   const t = team();
@@ -222,8 +334,8 @@ function renderCalendar() {
         <button class="evhead" data-event="${e.id}">
           <span class="evdate"><span class="d">${e.date.slice(8)}</span><span class="m">${e.dayName.slice(0, 3)}</span></span>
           <span class="evmain">
-            <span class="t">${esc(eventTitle(e))}</span>
-            <span class="s">${eventTitle(e) === e.type ? "" : e.type + " &middot; "}${e.time}&ndash;${e.endTime} &middot; ${esc(e.venue)}</span>
+            <span class="t">${eventTitle(e)}</span>
+            <span class="s">${e.time}&ndash;${e.endTime} &middot; ${esc(e.venue)}</span>
           </span>
           <span class="evtags">${tags.join(" ")}</span>
         </button>
@@ -638,7 +750,7 @@ function renderInvite() {
 
   if (!e.published) {
     wrap.innerHTML = `<div class="page-head"><div><h2>The parent's invitation</h2>
-      <div class="count">${esc(eventTitle(e))} &middot; ${e.longDate}</div></div></div>
+      <div class="count">${eventTitle(e)} &middot; ${e.longDate}</div></div></div>
       <div class="alert warn"><b>Nothing has been sent yet.</b> This event is still a draft, so no member can
       see it. Publish it on the calendar and the invitation below goes out.</div>`;
     return;
@@ -652,7 +764,7 @@ function renderInvite() {
 
   const facts = `
     <div class="mfacts">
-      <div><span class="k">What</span><span>${esc(eventTitle(e))}</span></div>
+      <div><span class="k">What</span><span>${eventTitle(e)}</span></div>
       <div><span class="k">When</span><span>${e.longDate}, ${e.time}&ndash;${e.endTime}</span></div>
       <div><span class="k">Meet</span><span>${e.meetTime}</span></div>
       <div><span class="k">Where</span><span>${esc(e.venue)}</span></div>
@@ -666,7 +778,7 @@ function renderInvite() {
         <div class="done ${yes ? "yes" : "no"}">
           <div class="tick">${yes ? "&check;" : "&times;"}</div>
           <div style="font-weight:700;font-size:16px">${yes ? esc(child.firstName) + " is down as going" : esc(child.firstName) + " is marked as not going"}</div>
-          <div class="sub" style="margin-top:5px">${esc(eventTitle(e))} &middot; ${e.dayName} ${e.shortDate}, ${e.time}</div>
+          <div class="sub" style="margin-top:5px">${eventTitle(e)} &middot; ${e.dayName} ${e.shortDate}, ${e.time}</div>
         </div>
       </div>
       <div class="pcard">
@@ -677,7 +789,7 @@ function renderInvite() {
     panel = `
       <div class="pcard">
         <div class="ev">${t.name} &middot; ${e.type}</div>
-        <div class="grp" style="font-size:19px">${esc(eventTitle(e))}</div>
+        <div class="grp" style="font-size:19px">${eventTitle(e)}</div>
         <div class="sub">${e.longDate}<br>${e.time}&ndash;${e.endTime} &middot; meet at ${e.meetTime}<br>${esc(e.venue)}</div>
       </div>
       <div class="pcard">
@@ -694,7 +806,7 @@ function renderInvite() {
   wrap.innerHTML = `
     <div class="page-head">
       <div><h2>The parent's invitation</h2>
-        <div class="count">${esc(eventTitle(e))} &middot; ${e.longDate}</div></div>
+        <div class="count">${eventTitle(e)} &middot; ${e.longDate}</div></div>
       <div class="spacer"></div>
       <select class="pick" id="invite-child">
         ${teamChildren().slice().sort((a, b) => a.name.localeCompare(b.name)).map((c) =>
@@ -773,7 +885,7 @@ function renderInvite() {
 function renderGroups() {
   const e = ev(), t = team();
   const head = `<div class="page-head">
-      <div><h2>Squads</h2><div class="count">${esc(eventTitle(e))} &middot; ${e.longDate} &middot; ${t.name}</div></div>
+      <div><h2>Squads</h2><div class="count">${eventTitle(e)} &middot; ${e.longDate} &middot; ${t.name}</div></div>
       <div class="spacer"></div>
       <button class="btn primary" id="publish-squads">${e.squadsPublished ? "Re-publish squads" : "Publish squads"}</button></div>`;
 
@@ -1053,7 +1165,7 @@ function familyEvents(me) {
 /* the squad a parent is shown. A match squad is called a team, because that is what
    the club calls it on the day; everywhere else it is a squad. */
 function squadLabel(e, sq) {
-  return e.type === "Game" ? "Team " + (sq.index + 1) : sq.name;
+  return (e.type === "Game" || e.type === "Blitz") ? "Team " + (sq.index + 1) : sq.name;
 }
 
 function familyAnswer(e, personId, value) {
@@ -1137,12 +1249,22 @@ function squadPanel(entry, person) {
   const nameItem = (p, mine, hiddenLabel) =>
     `<li class="${mine ? "mine" : ""}">${esc(p.name)}${mine ? `<span class="vh"> &mdash; ${hiddenLabel}</span>` : ""}</li>`;
 
+  /* A coach can ring the other coaches on their own squad. A parent who does not coach
+     sees names only — a coach's number is not a parent-facing detail. */
+  const iCoachHere = !!me.coachIn[entry.team.id];
+  const coachItem = (c) => {
+    const mine = c.id === me.id;
+    if (!iCoachHere || mine || !c.phone) return nameItem(c, mine, "you");
+    return `<li>${esc(c.name)} <a class="tellink" href="tel:${esc(c.phone.replace(/\s+/g, ""))}"
+      aria-label="Call ${esc(c.name)} on ${esc(c.phone)}">${esc(c.phone)}</a></li>`;
+  };
+
   return `<div class="squad-box">
       <div class="sq">${esc(squadLabel(e, sq))}</div>
       <div class="sl">
         <h5>Coaches (${coaches.length})</h5>
         <ul class="cols">${coaches.length
-          ? coaches.map((c) => nameItem(c, c.id === me.id, "you")).join("")
+          ? coaches.map(coachItem).join("")
           : "<li>Not yet assigned</li>"}</ul>
       </div>
       <hr class="hairline">
@@ -1164,20 +1286,50 @@ function deadlineLine(e, personId) {
     : "Answers due by " + fmtWhen(deadlineFor(e))}</div>`;
 }
 
+/* the provenance line as plain words, for the compressed one-line form */
+function answeredWords(e, personId) {
+  const st = e.status.get(personId) || "none";
+  if (st === "none") return "";
+  const when = e.answeredAt.get(personId), by = e.answeredBy.get(personId);
+  const whoBy = by === "admin" ? "an admin"
+    : (BY_ID.get(by) ? (by === signedIn().id ? "you" : BY_ID.get(by).firstName) : "an admin");
+  return (st === "accepted" ? "Accepted" : "Declined") + " by " + whoBy + (when ? ", " + fmtDay(when) : "");
+}
+
 function answerBlock(entry, person, label) {
   const e = entry.event;
   const st = e.status.get(person.id) || "none";
   const started = hasStarted(e);
 
-  /* Tapping Change answer opens the choice; it writes nothing. A parent who taps it
-     and walks away has changed nothing, and their child is still down as they were. */
+  /* Tapping Change opens the choice; it writes nothing. A parent who taps it and walks
+     away has changed nothing, and their child is still down as they were. */
   const editKey = e.id + ":" + person.id;
-  const choosing = st === "none" || state.familyEditing === editKey;
+  const choosing = state.familyEditing === editKey;
 
-  let control = "";
+  /* An answer that exists is a fact, not an action: one line carrying the person, who
+     said it and when, and a way to change it. The word in the provenance is the status,
+     so a badge repeating it earns nothing — and the collapsed header already showed it. */
+  if (st !== "none" && !choosing) {
+    return `<div class="kid-block one-line">
+        <div class="ans-line">
+          <span class="ans-name">${esc(label)}</span>
+          <span class="sep" aria-hidden="true">&middot;</span>
+          <span class="ans-words">${esc(answeredWords(e, person.id))}</span>
+          ${started
+            ? `<span class="sep" aria-hidden="true">&middot;</span>
+               <span class="finished-note">This session has finished.</span>`
+            : `<span class="sep" aria-hidden="true">&middot;</span>
+               <button class="linkbtn" data-change="${editKey}"
+                 aria-label="Change the answer for ${esc(label)}">Change</button>`}
+        </div>
+      </div>`;
+  }
+
+  /* Unanswered is the primary action, so it keeps full buttons. */
+  let control;
   if (started) {
     control = `<span class="finished-note">This session has finished.</span>`;
-  } else if (choosing) {
+  } else {
     control = `<span class="answer-row" role="group" aria-label="Answer for ${esc(label)}">
         <button class="btn choice ${st === "accepted" ? "is-selected" : ""}" aria-pressed="${st === "accepted"}"
           data-yes="${person.id}" data-ev="${e.id}">Yes, coming</button>
@@ -1185,9 +1337,6 @@ function answerBlock(entry, person, label) {
           data-no="${person.id}" data-ev="${e.id}">Can't make it</button>
         ${st === "none" ? "" : `<button class="linkbtn" data-cancel-change="1">Keep ${
           st === "accepted" ? "Yes, coming" : "Can't make it"}</button>`}</span>`;
-  } else {
-    control = `<span class="answer-row">
-        <button class="btn" data-change="${editKey}">Change answer</button></span>`;
   }
 
   return `<div class="kid-block">
@@ -1278,10 +1427,9 @@ function renderFamily() {
     return `<div class="fev ${open ? "is-open" : ""} ${started ? "is-past" : ""} ${e.cancelled ? "is-cancelled" : ""}"
         id="fev-${e.id}">
       <button class="fev-head" data-fev="${e.id}" aria-expanded="${open}">
-        <span class="ev-when"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span>
-          <span class="kind">${TYPE_WORD[e.type] || esc(e.type)}</span></span>
+        <span class="ev-when ${tileKind(e)}"><span class="dd">${e.date.slice(8)}</span><span class="mm">${e.shortDate.split(" ")[1]}</span></span>
         <span class="fev-main">
-          <span class="fev-title">${esc(eventTitle(e))}</span>
+          <span class="fev-title">${eventTitle(e)}</span>
           <span class="fev-sub">${dayWord} &middot; ${subTime}</span>
         </span>
         <span class="fev-tags ${tagClass}">${chips}</span>
@@ -1640,6 +1788,9 @@ function signInAs(id) {
 }
 
 function signOut() {
+  state.menuOpen = false;
+  state.menuPanel = null;
+  if (el("usermenu")) { el("usermenu").hidden = true; el("whoami").setAttribute("aria-expanded", "false"); }
   state.signedInId = null;
   state.editingId = null;
   state.editDraft = null;
@@ -1670,15 +1821,20 @@ el("personas").innerHTML = PERSONAS.map((p) => {
 el("personas").querySelectorAll("[data-signin]").forEach((b) =>
   b.onclick = () => signInAs(Number(b.dataset.signin)));
 
-el("sign-out").onclick = signOut;
-
 el("team-pick").onchange = () => { selectTeam(el("team-pick").value); renderAll(); };
 
-el("theme-toggle").onclick = () => {
-  const now = document.documentElement.getAttribute("data-theme");
-  const dark = now ? now === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
-};
+el("whoami").onclick = () => { state.menuOpen ? closeUserMenu() : openUserMenu(); };
+
+document.addEventListener("keydown", (e) => {
+  if (!state.menuOpen) return;
+  if (e.key === "Escape") { e.stopPropagation(); closeUserMenu(); }
+  else if (e.key === "Tab") trapMenuTab(e);
+});
+
+document.addEventListener("mousedown", (e) => {
+  if (state.menuOpen && !el("usermenu").contains(e.target) && e.target !== el("whoami")
+      && !el("whoami").contains(e.target)) closeUserMenu(false);
+});
 
 /* squads are already out for the next session of each team, so a parent signing in
    has something to look at; later sessions are left unpublished on purpose */

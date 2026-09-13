@@ -357,6 +357,38 @@ The date column was tightened to absorb the extra line, so rows are the height t
 
 Still **not** decided, and still being settled by watching people use it: which element leads a row, and whether training and matches should differ from each other in any stronger way than this. This adds the distinction without committing to that.
 
+**Updated.** The word moved out of the date tile and into the title, and the tile is now coloured by type. This supersedes the placement above, not the problem it was solving.
+
+The type leads the title: "Training", "Match · Home to Templeogue Synge Street", "Blitz · Cuala, Naomh Olaf and Ballinteer". That also closes a gap nobody had noticed while the word lived beside the date — a blitz and a match were indistinguishable on a row, because the old word said "Match" for both or said nothing.
+
+The tile is purple for training and club gold for a match or a blitz. The caution recorded above was against colour as the **only** signal; as reinforcement of a word already in the title it costs nothing and is faster to scan down a list. The two states the caution was about are unaffected: a cancelled event keeps its own treatment, and a past event mutes its tile along with the rest of the row, so a finished match never sits brighter than an upcoming session. Measured: gold tile 9.75:1 in both themes, purple 11.09 light and 8.98 dark, muted past tile 6.24 light and 5.75 dark.
+
+The tile went back to the size it was before item 75 tightened it, since there is no second line in it any more.
+
+The "still not decided" paragraph above stands untouched. Which element leads a row is still being settled by watching people use it, and this does not commit to it.
+
+
+**76. A venue said where, but not how to get in.** The venue is a name from the club's list and, for away fixtures, a name a parent has never driven to.
+
+**Decided.** A venue carries an **eircode** and a short free-text **note for parking and access**, both entered by the Club Admin alongside the venue itself. A parent sees the venue name, the eircode, a map link and the note on the expanded event.
+
+It matters most for away fixtures. The eircode is for the satnav; the note is for everything the satnav cannot say — which gate, where parking actually is, whether the pitch is the one behind the clubhouse. Free text rather than fields, because every ground is awkward in its own way and a set of columns would fit none of them.
+
+It sits on the venue and not on the event because it is a fact about the ground. Entered once, it is right for every fixture played there, and an admin creating a fixture does not retype it or forget to.
+
+Not built. This is a record of the decision, not of a change.
+
+
+**77. There is no named person for a parent to contact.** When a pitch changes an hour before throw-in, or a parent is lost on the way to an away ground, there is nobody on the screen to ring. A general club number rings out on a Saturday morning.
+
+**Proposed, needs the club's agreement before it is built.** A parent sees the team admin's name and phone number — one named person per team, the one who already knows what changed.
+
+Deliberately the team admin and **not** the coaches. Coaches' numbers are shown to other coaches on the squad card, and are not exposed to parents; that boundary is the point of putting one named contact in front of them instead.
+
+The reason this needs asking rather than assuming: it puts a volunteer's personal number in front of every parent in the age group. That is the club's call and the team admin's, not a design decision. If the answer is no, the fallback question is what replaces it, because the problem it solves is real and happens on the day.
+
+Not built.
+
 ## Things I'd have to invent to build it
 
 These aren't underspecified so much as absent — if you don't answer them I will pick something and it will be a guess:

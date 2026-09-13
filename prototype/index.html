@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store">
 <title>Kilmacud Crokes — juvenile training</title>
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
 
@@ -29,9 +29,10 @@
       </div>
       <select class="teampick" id="team-pick" aria-label="Choose age group"></select>
       <div class="spacer"></div>
-      <div class="whoami" id="whoami"></div>
-      <button class="iconbtn" id="theme-toggle" aria-label="Switch between light and dark">◐</button>
-      <button class="btn ghost" id="sign-out">Sign out</button>
+      <div class="usermenu-wrap">
+        <button class="whoami" id="whoami" aria-haspopup="true" aria-expanded="false" aria-controls="usermenu"></button>
+        <div class="usermenu" id="usermenu" hidden></div>
+      </div>
     </header>
     <nav class="tabs" id="tabs" role="tablist"></nav>
   </div>
@@ -50,8 +51,8 @@
   </footer>
 </div>
 
-<script src="data.js?v=19"></script>
-<script src="allocate.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="data.js?v=20"></script>
+<script src="allocate.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

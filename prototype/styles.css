@@ -400,9 +400,9 @@ footer code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px
 .family { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 22px; align-items: start; }
 @media (max-width: 900px) { .family { grid-template-columns: 1fr; } }
 
-.ev-when { flex: none; width: 58px; text-align: center; }
-.ev-when .dd { font-size: 18px; font-weight: 700; line-height: 1.05; }
-.ev-when .mm { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; line-height: 1; }
+.ev-when { flex: none; width: 58px; text-align: center; border-radius: 10px; padding: 8px 4px; }
+.ev-when .dd { font-size: 21px; font-weight: 700; line-height: 1; }
+.ev-when .mm { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
 
 .kid-block { border-top: 1px solid var(--surface-2); padding: 14px 18px; }
 .answer-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -522,12 +522,6 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 
 /* the date tile reads as a date: number over month */
 .ev-when .dd, .ev-when .mm { display: block; }
-.ev-when .dd, .ev-when .mm { background: var(--brand-soft); color: var(--brand-soft-ink); }
-.ev-when .dd { border-radius: 10px 10px 0 0; padding: 5px 4px 0; }
-.ev-when .mm { border-radius: 0 0 10px 10px; padding: 1px 4px 5px; }
-/* the type word sits under the date, kept tight so it does not stretch the row */
-.ev-when .kind { display: block; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: .04em;
-  color: var(--muted); margin-top: 3px; }
 
 /* the outstanding banner is also the way to reach what it counts */
 .alert-action {
@@ -589,3 +583,55 @@ hr.hairline { border: 0; border-top: 1px solid var(--line); margin: 13px 0; }
 
 /* ---- a finished session says so where its buttons would have been ---- */
 .finished-note { font-size: 12.5px; color: var(--muted); font-style: italic; }
+
+/* ---- the tile is coloured by type; the word in the title carries the meaning ----
+   Measured: gold tile ink #1C1022 on #F0B323 = 9.75:1 in both themes (both fixed).
+   Purple tile 11.09:1 light, 8.98:1 dark. Muted past tile 6.24:1 light, 5.75:1 dark. */
+.ev-when.is-training { background: var(--brand-soft); color: var(--brand-soft-ink); }
+.ev-when.is-match { background: var(--gold); color: #1C1022; }
+
+/* a finished match must not sit there brighter than an upcoming session */
+.fev.is-past .ev-when.is-training,
+.fev.is-past .ev-when.is-match { background: var(--surface-2); color: var(--muted); }
+
+/* ---- an answer that exists is one line ---- */
+.kid-block.one-line { padding-bottom: 0; }
+.ans-line { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; padding: 11px 0; font-size: 13.5px; }
+.ans-line .ans-name { font-size: 13.5px; font-weight: 650; }
+.ans-line .ans-words { color: var(--muted); }
+.ans-line .sep { color: var(--muted); }
+.ans-line .finished-note { font-style: italic; }
+
+/* ---- a coach can ring the other coaches on their squad ---- */
+.tellink { color: var(--brand); text-decoration: none; font-variant-numeric: tabular-nums; }
+.tellink:hover { text-decoration: underline; }
+
+/* ---- the name is the menu ---- */
+.usermenu-wrap { position: relative; }
+button.whoami {
+  display: flex; align-items: center; gap: 7px; font: inherit; font-size: 13.5px;
+  background: rgba(255,255,255,.12); color: var(--header-ink); border: 1px solid rgba(255,255,255,.4);
+  border-radius: 8px; padding: 7px 11px; cursor: pointer; text-align: left;
+}
+button.whoami:hover { background: rgba(255,255,255,.22); }
+button.whoami b { font-weight: 650; }
+button.whoami .caret { width: .7em; height: auto; flex: none; }
+.usermenu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 70; min-width: 232px; max-width: 88vw;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.28); padding: 6px;
+}
+.menu-item {
+  display: block; width: 100%; text-align: left; font: inherit; font-size: 14px;
+  background: none; border: 0; border-radius: 8px; padding: 9px 11px; color: var(--ink); cursor: pointer;
+}
+.menu-item:hover { background: var(--surface-2); }
+.menu-rule { height: 1px; background: var(--line); margin: 5px 8px; }
+.menu-panel { padding: 4px 11px 10px; border-bottom: 1px solid var(--surface-2); }
+.menu-panel .childrow { padding: 8px 0; }
+.menu-panel .kv { font-size: 13px; }
+
+/* on a narrow screen the cards come from the menu, not from under a season of events */
+@media (max-width: 900px) {
+  .family > div:last-child { display: none; }
+}

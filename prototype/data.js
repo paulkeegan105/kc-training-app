@@ -219,6 +219,8 @@ const SEASONS = {
     { date: "2026-09-26", type: "Game", venue: "Glenalbyn, Pitch 1", time: "10:30", opposition: "Naomh Olaf", duration: 60,
       cancelled: "Pitch waterlogged after Friday's rain." },
     { date: "2026-09-30", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
+    { date: "2026-10-03", type: "Blitz", venue: "Glenalbyn, Pitch 1", time: "10:00", duration: 150,
+      title: "Cuala, Naomh Olaf and Ballinteer" },
     { date: "2026-10-07", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30" },
     { date: "2026-10-14", type: "Training", venue: "Glenalbyn, Pitch 2", time: "18:30", draft: true },
     { date: "2026-10-24", type: "Other", venue: "Glenalbyn Clubhouse", time: "15:00", title: "Halloween party", duration: 120, draft: true }
@@ -243,7 +245,8 @@ function buildEvents(team) {
       type: spec.type, title: spec.title || null,
       date: spec.date, time: spec.time, duration: dur,
       endTime: addMinutes(spec.time, dur),
-      meetTime: spec.type === "Game" ? addMinutes(spec.time, -30) : addMinutes(spec.time, -15),
+      meetTime: (spec.type === "Game" || spec.type === "Blitz")
+        ? addMinutes(spec.time, -30) : addMinutes(spec.time, -15),
       venue: spec.venue, opposition: spec.opposition || null, away: !!spec.away,
       published: !spec.draft, draft: !!spec.draft,
       cancelled: spec.cancelled || null,
